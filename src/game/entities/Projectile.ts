@@ -15,9 +15,12 @@ export class Projectile {
     this.scene = scene;
     this.sourceId = sourceTank.getId();
     
-    // Get the position and direction from the tank's barrel
+    // Get the position from the tank's barrel
     this.position = sourceTank.getBarrelPosition();
-    this.direction = sourceTank.getTurretDirection();
+    
+    // Get the forward direction from the tank
+    // The key fix: we need to use the tank's forward direction
+    this.direction = sourceTank.getForwardDirection().clone();
   }
   
   public initialize(): void {

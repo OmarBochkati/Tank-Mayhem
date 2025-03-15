@@ -109,10 +109,10 @@ export class InputManager {
     let z = 0;
     
     // WASD or Arrow keys - FIXED: W is forward, S is backward
-    if (this.isKeyPressed('w') || this.isKeyPressed('arrowup')) z += 1;
-    if (this.isKeyPressed('s') || this.isKeyPressed('arrowdown')) z -= 1;
-    if (this.isKeyPressed('a') || this.isKeyPressed('arrowleft')) x -= 1;
-    if (this.isKeyPressed('d') || this.isKeyPressed('arrowright')) x += 1;
+    if (this.isKeyPressed('w') || this.isKeyPressed('arrowup')) z -= 1;
+    if (this.isKeyPressed('s') || this.isKeyPressed('arrowdown')) z += 1;
+    if (this.isKeyPressed('a') || this.isKeyPressed('arrowleft')) x += 1;
+    if (this.isKeyPressed('d') || this.isKeyPressed('arrowright')) x -= 1;
     
     // Normalize for diagonal movement
     if (x !== 0 && z !== 0) {
