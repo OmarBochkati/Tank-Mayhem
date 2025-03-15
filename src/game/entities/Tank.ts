@@ -7,7 +7,6 @@ export class Tank {
   private scene: THREE.Scene;
   private position: THREE.Vector3;
   private rotation: number = 0;
-  private turretRotation: number = 0;
   
   private tankBody: THREE.Mesh;
   private tankTurret: THREE.Mesh;
@@ -22,7 +21,6 @@ export class Tank {
   
   private speed: number = 10;
   private rotationSpeed: number = 2;
-  private turretRotationSpeed: number = 3;
   
   private health: number = 100;
   private maxHealth: number = 100;
@@ -35,10 +33,6 @@ export class Tank {
   
   private radius: number = 2;
   private color: number = 0x3498db;
-  
-  // For cursor aiming
-  private raycaster: THREE.Raycaster = new THREE.Raycaster();
-  private groundPlane: THREE.Plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   
   constructor(scene: THREE.Scene, x: number, y: number, z: number) {
     this.id = uuidv4();
@@ -183,7 +177,7 @@ export class Tank {
         this.tankGroup.rotation.y = this.rotation;
       }
       
-      // Move tank forward/backward - FIXED: positive Z is forward
+      // Move tank forward/backward
       if (movement.z !== 0) {
         const moveSpeed = this.speed * deltaTime * movement.z;
         const moveX = Math.sin(this.rotation) * moveSpeed;
@@ -192,11 +186,6 @@ export class Tank {
         this.position.x -= moveX;
         this.position.z -= moveZ;
         this.tankGroup.position.copy(this.position);
-      }
-      
-      // Aim turret at cursor position if camera is provided
-      if (camera) {
-        this.aimAtCursor(inputManager, camera);
       }
     }
     
@@ -224,42 +213,6 @@ export class Tank {
     this.healthBarGroup.lookAt(
       this.healthBarGroup.getWorldPosition(new THREE.Vector3()).add(direction)
     );
-  }
-  
-  // Updated method to aim the turret at the cursor position
-  private aimAtCursor(inputManager: InputManager, camera: THREE.Camera): void {
-    // Get the mouse position in normalized device coordinates
-    const mousePos = inputManager.getMousePosition();
-    
-    // Create a ray from the camera through the mouse position
-    this.raycaster.setFromCamera(new THREE.Vector2(mousePos.x, mousePos.y), camera);
-    
-    // Find where the ray intersects the ground plane
-    const targetPoint = new THREE.Vector3();
-    this.raycaster.ray.intersectPlane(this.groundPlane, targetPoint);
-    
-    // Calculate direction from tank to target point
-    const direction = new THREE.Vector3();
-    direction.subVectors(targetPoint, this.position).normalize();
-    
-    // Calculate the angle for the turret
-    const targetAngle = Math.atan2(direction.x, direction.z);
-    
-    // Smoothly rotate the turret towards the target angle
-    const angleDiff = this.normalizeAngle(targetAngle - this.turretRotation);
-    
-    if (Math.abs(angleDiff) > 0.01) {
-      const rotationAmount = Math.sign(angleDiff) * Math.min(this.turretRotationSpeed * 0.1, Math.abs(angleDiff));
-      this.turretRotation += rotationAmount;
-      this.tankTurret.rotation.y = this.turretRotation;
-    }
-  }
-  
-  // Helper method to normalize an angle to the range [-PI, PI]
-  private normalizeAngle(angle: number): number {
-    while (angle > Math.PI) angle -= Math.PI * 2;
-    while (angle < -Math.PI) angle += Math.PI * 2;
-    return angle;
   }
   
   public destroy(): void {
@@ -299,15 +252,6 @@ export class Tank {
   public setRotation(rotation: number): void {
     this.rotation = rotation;
     this.tankGroup.rotation.y = this.rotation;
-  }
-  
-  public getTurretRotation(): number {
-    return this.turretRotation;
-  }
-  
-  public setTurretRotation(rotation: number): void {
-    this.turretRotation = rotation;
-    this.tankTurret.rotation.y = this.turretRotation;
   }
   
   public getRadius(): number {
@@ -384,13 +328,12 @@ export class Tank {
   }
   
   public getTurretDirection(): THREE.Vector3 {
-    const direction = new THREE.Vector3(0, 0, 1);
-    direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.turretRotation);
-    return direction;
+    // Now the turret always faces the same direction as the tank body
+    return this.getForwardDirection();
   }
   
   public getBarrelPosition(): THREE.Vector3 {
-    const direction = this.getTurretDirection();
+    const direction = this.getForwardDirection();
     return new THREE.Vector3(
       this.position.x + direction.x * 3,
       this.position.y + 1,

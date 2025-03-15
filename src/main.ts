@@ -17,7 +17,7 @@ function createUIElements() {
     healthBar = document.createElement('div');
     healthBar.id = 'health-bar';
     healthBar.style.position = 'absolute';
-    healthBar.style.bottom = '20px';
+    healthBar.style.top = '10px';
     healthBar.style.left = '20px';
     healthBar.style.width = '200px';
     healthBar.style.height = '20px';
@@ -35,36 +35,7 @@ function createUIElements() {
     healthFill.style.transition = 'width 0.3s, background-color 0.3s';
     healthBar.appendChild(healthFill);
   }
-
-  // Create ammo counter
-  let ammoCounter = document.getElementById('ammo-counter');
-  if (!ammoCounter) {
-    ammoCounter = document.createElement('div');
-    ammoCounter.id = 'ammo-counter';
-    ammoCounter.style.position = 'absolute';
-    ammoCounter.style.bottom = '50px';
-    ammoCounter.style.left = '20px';
-    ammoCounter.style.color = 'white';
-    ammoCounter.style.fontSize = '18px';
-    ammoCounter.style.fontFamily = 'Arial, sans-serif';
-    ammoCounter.textContent = 'Ammo: 5/5';
-    document.body.appendChild(ammoCounter);
-  }
-
-  // Create timer
-  let timer = document.getElementById('timer');
-  if (!timer) {
-    timer = document.createElement('div');
-    timer.id = 'timer';
-    timer.style.position = 'absolute';
-    timer.style.top = '20px';
-    timer.style.right = '20px';
-    timer.style.color = 'white';
-    timer.style.fontSize = '18px';
-    timer.style.fontFamily = 'Arial, sans-serif';
-    timer.textContent = 'Time: 0:00';
-    document.body.appendChild(timer);
-  }
+  
 
   // Create score display
   let score = document.getElementById('score');
@@ -72,7 +43,7 @@ function createUIElements() {
     score = document.createElement('div');
     score.id = 'score';
     score.style.position = 'absolute';
-    score.style.top = '20px';
+    score.style.top = '60px';
     score.style.left = '20px';
     score.style.color = 'white';
     score.style.fontSize = '24px';
@@ -133,30 +104,7 @@ function createUIElements() {
     gameOver.appendChild(restartButton);
   }
 
-  // Create controls legend - FIXED: moved to bottom-right corner
-  let controls = document.getElementById('controls');
-  if (!controls) {
-    controls = document.createElement('div');
-    controls.id = 'controls';
-    controls.style.position = 'absolute';
-    controls.style.bottom = '20px';
-    controls.style.right = '20px';
-    controls.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-    controls.style.color = 'white';
-    controls.style.padding = '10px';
-    controls.style.borderRadius = '5px';
-    controls.style.fontFamily = 'Arial, sans-serif';
-    controls.style.fontSize = '14px';
-    controls.style.zIndex = '100'; // Ensure it's above the game but below popups
-    controls.style.pointerEvents = 'none'; // Make it non-interactive
-    controls.innerHTML = `
-      <p><strong>Controls:</strong></p>
-      <p>W, S, A, D - Move tank</p>
-      <p>Mouse - Aim turret</p>
-      <p>Left Click/Space - Fire</p>
-    `;
-    document.body.appendChild(controls);
-  }
+  
 }
 
 // Global game instance

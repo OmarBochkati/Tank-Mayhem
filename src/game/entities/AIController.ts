@@ -4,142 +4,297 @@ import { Obstacle } from '../environment/Obstacle';
 
 export class AIController {
   private tank: Tank;
-  private targetTank: Tank;
+  private playerTank: Tank;
   private obstacles: Obstacle[];
   
-  private moveTimer: number = 0;
-  private moveDirection: THREE.Vector3 = new THREE.Vector3();
-  private rotationDirection: number = 0;
+  private state: 'idle' | 'chase' | 'attack' | 'retreat' = 'idle';
+  private stateTimer: number = 0;
+  private targetPosition: THREE.Vector3 = new THREE.Vector3();
   
-  private fireTimer: number = 0;
-  private fireDelay: number = 2;
+  private readonly DETECTION_RANGE: number = 40;
+  private readonly ATTACK_RANGE: number = 25;
+  private readonly RETREAT_HEALTH: number = 30;
+  private readonly MIN_DISTANCE: number = 15;
   
-  private detectionRange: number = 30;
-  private firingRange: number = 20;
-  
-  constructor(tank: Tank, targetTank: Tank, obstacles: Obstacle[]) {
+  constructor(tank: Tank, playerTank: Tank, obstacles: Obstacle[]) {
     this.tank = tank;
-    this.targetTank = targetTank;
+    this.playerTank = playerTank;
     this.obstacles = obstacles;
     
-    // Initialize with random movement
-    this.setRandomMovement();
+    // Set initial state
+    this.changeState('idle');
   }
   
   public update(deltaTime: number): void {
-    // Update timers
-    this.moveTimer -= deltaTime;
-    this.fireTimer -= deltaTime;
+    // Update state timer
+    this.stateTimer -= deltaTime;
     
-    // Check if it's time to change movement
-    if (this.moveTimer <= 0) {
-      this.setRandomMovement();
+    // Get distance to player
+    const distanceToPlayer = this.getDistanceToPlayer();
+    
+    // Check if we need to change state
+    this.updateState(distanceToPlayer);
+    
+    // Execute current state behavior
+    switch (this.state) {
+      case 'idle':
+        this.executeIdleState(deltaTime);
+        break;
+      case 'chase':
+        this.executeChaseState(deltaTime);
+        break;
+      case 'attack':
+        this.executeAttackState(deltaTime);
+        break;
+      case 'retreat':
+        this.executeRetreatState(deltaTime);
+        break;
     }
-    
-    // Get distance to target
-    const targetPosition = this.targetTank.getPosition();
-    const tankPosition = this.tank.getPosition();
-    const distanceToTarget = new THREE.Vector3()
-      .subVectors(targetPosition, tankPosition)
-      .length();
-    
-    // If target is within detection range, aim at it
-    if (distanceToTarget < this.detectionRange) {
-      this.aimAtTarget();
-      
-      // If within firing range and can fire, shoot
-      if (distanceToTarget < this.firingRange && this.fireTimer <= 0 && this.tank.canFire()) {
-        this.fireTimer = this.fireDelay;
-        this.tank.fire();
-      }
-    }
-    
-    // Apply movement
-    this.applyMovement(deltaTime);
   }
   
-  private setRandomMovement(): void {
-    // Set random movement duration between 1-3 seconds
-    this.moveTimer = 1 + Math.random() * 2;
+  private updateState(distanceToPlayer: number): void {
+    // Check if we need to retreat based on health
+    if (this.tank.getHealth() < this.RETREAT_HEALTH && this.state !== 'retreat') {
+      this.changeState('retreat');
+      return;
+    }
     
-    // Set random movement direction
+    // State transitions based on distance to player
+    switch (this.state) {
+      case 'idle':
+        if (distanceToPlayer < this.DETECTION_RANGE) {
+          this.changeState('chase');
+        }
+        break;
+      case 'chase':
+        if (distanceToPlayer < this.ATTACK_RANGE) {
+          this.changeState('attack');
+        } else if (distanceToPlayer > this.DETECTION_RANGE) {
+          this.changeState('idle');
+        }
+        break;
+      case 'attack':
+        if (distanceToPlayer > this.ATTACK_RANGE) {
+          this.changeState('chase');
+        }
+        break;
+      case 'retreat':
+        if (this.tank.getHealth() > this.RETREAT_HEALTH * 1.5 && this.stateTimer <= 0) {
+          if (distanceToPlayer < this.ATTACK_RANGE) {
+            this.changeState('attack');
+          } else if (distanceToPlayer < this.DETECTION_RANGE) {
+            this.changeState('chase');
+          } else {
+            this.changeState('idle');
+          }
+        }
+        break;
+    }
+  }
+  
+  private changeState(newState: 'idle' | 'chase' | 'attack' | 'retreat'): void {
+    this.state = newState;
+    
+    // Set state-specific timers and behaviors
+    switch (newState) {
+      case 'idle':
+        this.stateTimer = 2 + Math.random() * 3;
+        this.setRandomTargetPosition();
+        break;
+      case 'chase':
+        this.stateTimer = 0.5;
+        break;
+      case 'attack':
+        this.stateTimer = 0.5;
+        break;
+      case 'retreat':
+        this.stateTimer = 5 + Math.random() * 5;
+        this.setRetreatPosition();
+        break;
+    }
+  }
+  
+  private executeIdleState(deltaTime: number): void {
+    if (this.stateTimer <= 0) {
+      this.setRandomTargetPosition();
+      this.stateTimer = 2 + Math.random() * 3;
+    }
+    
+    this.moveTowardsTarget(deltaTime);
+  }
+  
+  private executeChaseState(deltaTime: number): void {
+    // Update target to player position
+    this.targetPosition.copy(this.playerTank.getPosition());
+    
+    // Keep some distance
+    if (this.getDistanceToPlayer() < this.MIN_DISTANCE) {
+      this.moveAwayFromTarget(deltaTime);
+    } else {
+      this.moveTowardsTarget(deltaTime);
+    }
+  }
+  
+  private executeAttackState(deltaTime: number): void {
+    // Update target to player position
+    this.targetPosition.copy(this.playerTank.getPosition());
+    
+    // Keep optimal attack distance
+    const distanceToPlayer = this.getDistanceToPlayer();
+    if (distanceToPlayer < this.MIN_DISTANCE) {
+      this.moveAwayFromTarget(deltaTime);
+    } else if (distanceToPlayer > this.ATTACK_RANGE * 0.8) {
+      this.moveTowardsTarget(deltaTime);
+    } else {
+      // We're at a good distance, just aim at the player
+      this.aimAtTarget(deltaTime);
+    }
+    
+    // Try to fire if we can
+    if (this.tank.canFire() && this.isAimedAtTarget()) {
+      this.tank.fire();
+    }
+  }
+  
+  private executeRetreatState(deltaTime: number): void {
+    if (this.stateTimer <= 0) {
+      this.setRetreatPosition();
+      this.stateTimer = 3;
+    }
+    
+    this.moveTowardsTarget(deltaTime);
+  }
+  
+  private setRandomTargetPosition(): void {
     const angle = Math.random() * Math.PI * 2;
-    this.moveDirection.set(Math.sin(angle), 0, Math.cos(angle));
+    const distance = 10 + Math.random() * 20;
     
-    // Set random rotation direction (-1 for left, 1 for right, 0 for none)
-    this.rotationDirection = Math.floor(Math.random() * 3) - 1;
+    this.targetPosition.set(
+      Math.cos(angle) * distance,
+      0,
+      Math.sin(angle) * distance
+    );
   }
   
-  private aimAtTarget(): void {
-    const targetPosition = this.targetTank.getPosition();
-    const tankPosition = this.tank.getPosition();
+  private setRetreatPosition(): void {
+    // Get direction away from player
+    const direction = new THREE.Vector3();
+    direction.subVectors(this.tank.getPosition(), this.playerTank.getPosition()).normalize();
     
+    // Set target position away from player
+    this.targetPosition.copy(this.tank.getPosition()).add(
+      direction.multiplyScalar(30 + Math.random() * 20)
+    );
+  }
+  
+  private moveTowardsTarget(deltaTime: number): void {
     // Calculate direction to target
-    const direction = new THREE.Vector3()
-      .subVectors(targetPosition, tankPosition)
-      .normalize();
+    const direction = new THREE.Vector3();
+    direction.subVectors(this.targetPosition, this.tank.getPosition()).normalize();
     
     // Calculate angle to target
     const targetAngle = Math.atan2(direction.x, direction.z);
+    const currentAngle = this.tank.getRotation();
     
-    // Set turret rotation to face target
-    this.tank.setTurretRotation(targetAngle);
+    // Calculate the difference between angles
+    let angleDiff = targetAngle - currentAngle;
+    
+    // Normalize angle difference to [-PI, PI]
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+    
+    // Rotate towards target
+    if (Math.abs(angleDiff) > 0.1) {
+      const rotationAmount = Math.sign(angleDiff) * Math.min(2 * deltaTime, Math.abs(angleDiff));
+      this.tank.setRotation(currentAngle + rotationAmount);
+    } else {
+      // Move forward if facing the target
+      const position = this.tank.getPosition();
+      const forward = this.tank.getForwardDirection();
+      
+      position.x -= forward.x * 5 * deltaTime;
+      position.z -= forward.z * 5 * deltaTime;
+      
+      this.tank.setPosition(position.x, position.y, position.z);
+    }
   }
   
-  private applyMovement(deltaTime: number): void {
-    // Apply rotation
-    if (this.rotationDirection !== 0) {
-      const currentRotation = this.tank.getRotation();
-      this.tank.setRotation(currentRotation + this.rotationDirection * deltaTime);
-    }
+  private moveAwayFromTarget(deltaTime: number): void {
+    // Calculate direction away from target
+    const direction = new THREE.Vector3();
+    direction.subVectors(this.tank.getPosition(), this.targetPosition).normalize();
     
-    // Apply movement - simplified for AI
-    const currentPosition = this.tank.getPosition();
-    const moveAmount = 5 * deltaTime; // Speed factor
+    // Calculate angle away from target
+    const targetAngle = Math.atan2(direction.x, direction.z);
+    const currentAngle = this.tank.getRotation();
     
-    // Calculate new position
-    const newPosition = new THREE.Vector3(
-      currentPosition.x + this.moveDirection.x * moveAmount,
-      currentPosition.y,
-      currentPosition.z + this.moveDirection.z * moveAmount
-    );
+    // Calculate the difference between angles
+    let angleDiff = targetAngle - currentAngle;
     
-    // Check if new position would be within arena bounds
-    const arenaSize = 100; // Should match the arena size
-    const tankRadius = this.tank.getRadius();
+    // Normalize angle difference to [-PI, PI]
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
     
-    if (
-      Math.abs(newPosition.x) < arenaSize / 2 - tankRadius &&
-      Math.abs(newPosition.z) < arenaSize / 2 - tankRadius
-    ) {
-      // Check for collisions with obstacles
-      let collision = false;
-      
-      for (const obstacle of this.obstacles) {
-        const obstaclePosition = obstacle.getPosition();
-        const obstacleRadius = obstacle.getRadius();
-        
-        const distance = new THREE.Vector2(
-          newPosition.x - obstaclePosition.x,
-          newPosition.z - obstaclePosition.z
-        ).length();
-        
-        if (distance < tankRadius + obstacleRadius) {
-          collision = true;
-          break;
-        }
-      }
-      
-      // If no collision, apply the movement
-      if (!collision) {
-        this.tank.setPosition(newPosition.x, newPosition.y, newPosition.z);
-      } else {
-        // If collision, change direction
-        this.setRandomMovement();
-      }
+    // Rotate away from target
+    if (Math.abs(angleDiff) > 0.1) {
+      const rotationAmount = Math.sign(angleDiff) * Math.min(2 * deltaTime, Math.abs(angleDiff));
+      this.tank.setRotation(currentAngle + rotationAmount);
     } else {
-      // If out of bounds, change direction
-      this.setRandomMovement();
+      // Move forward if facing away from the target
+      const position = this.tank.getPosition();
+      const forward = this.tank.getForwardDirection();
+      
+      position.x -= forward.x * 5 * deltaTime;
+      position.z -= forward.z * 5 * deltaTime;
+      
+      this.tank.setPosition(position.x, position.y, position.z);
     }
+  }
+  
+  private aimAtTarget(deltaTime: number): void {
+    // Calculate direction to target
+    const direction = new THREE.Vector3();
+    direction.subVectors(this.targetPosition, this.tank.getPosition()).normalize();
+    
+    // Calculate angle to target
+    const targetAngle = Math.atan2(direction.x, direction.z);
+    const currentAngle = this.tank.getRotation();
+    
+    // Calculate the difference between angles
+    let angleDiff = targetAngle - currentAngle;
+    
+    // Normalize angle difference to [-PI, PI]
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+    
+    // Rotate towards target
+    if (Math.abs(angleDiff) > 0.05) {
+      const rotationAmount = Math.sign(angleDiff) * Math.min(2 * deltaTime, Math.abs(angleDiff));
+      this.tank.setRotation(currentAngle + rotationAmount);
+    }
+  }
+  
+  private isAimedAtTarget(): boolean {
+    // Calculate direction to target
+    const direction = new THREE.Vector3();
+    direction.subVectors(this.targetPosition, this.tank.getPosition()).normalize();
+    
+    // Calculate angle to target
+    const targetAngle = Math.atan2(direction.x, direction.z);
+    const currentAngle = this.tank.getRotation();
+    
+    // Calculate the difference between angles
+    let angleDiff = targetAngle - currentAngle;
+    
+    // Normalize angle difference to [-PI, PI]
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+    
+    // Return true if we're aimed at the target
+    return Math.abs(angleDiff) < 0.2;
+  }
+  
+  private getDistanceToPlayer(): number {
+    return this.tank.getPosition().distanceTo(this.playerTank.getPosition());
   }
 }
