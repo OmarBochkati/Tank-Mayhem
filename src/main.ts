@@ -11,30 +11,7 @@ function createUIElements() {
     document.body.appendChild(gameContainer);
   }
 
-  // Create health bar
-  let healthBar = document.getElementById('health-bar');
-  if (!healthBar) {
-    healthBar = document.createElement('div');
-    healthBar.id = 'health-bar';
-    healthBar.style.position = 'absolute';
-    healthBar.style.top = '10px';
-    healthBar.style.left = '20px';
-    healthBar.style.width = '200px';
-    healthBar.style.height = '20px';
-    healthBar.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-    healthBar.style.border = '2px solid white';
-    healthBar.style.borderRadius = '10px';
-    healthBar.style.overflow = 'hidden';
-    document.body.appendChild(healthBar);
-
-    const healthFill = document.createElement('div');
-    healthFill.id = 'health-fill';
-    healthFill.style.width = '100%';
-    healthFill.style.height = '100%';
-    healthFill.style.backgroundColor = '#2ecc71';
-    healthFill.style.transition = 'width 0.3s, background-color 0.3s';
-    healthBar.appendChild(healthFill);
-  }
+  
   
 
   // Create game over screen

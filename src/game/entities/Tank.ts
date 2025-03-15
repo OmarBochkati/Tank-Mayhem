@@ -312,13 +312,41 @@ export class Tank {
       if (this.reloadTimer <= 0 && this.currentAmmo < this.maxAmmo) {
         this.reloadTimer = this.reloadTime;
       }
+      
+      // Add muzzle flash effect
+      this.createMuzzleFlash();
     }
+  }
+  
+  private createMuzzleFlash(): void {
+    // Create a point light for muzzle flash
+    const muzzleFlash = new THREE.PointLight(
+      this.color === 0xff0000 ? 0xff6600 : 0x00aaff, 
+      2, 
+      10
+    );
+    
+    // Position at the end of the barrel
+    const barrelPos = this.getBarrelPosition();
+    muzzleFlash.position.copy(barrelPos);
+    
+    // Add to scene
+    this.scene.add(muzzleFlash);
+    
+    // Remove after a short time
+    setTimeout(() => {
+      this.scene.remove(muzzleFlash);
+    }, 100);
   }
   
   public setColor(color: number): void {
     this.color = color;
     (this.tankBody.material as THREE.MeshPhongMaterial).color.set(color);
     (this.tankTurret.material as THREE.MeshPhongMaterial).color.set(color);
+  }
+  
+  public getColor(): number {
+    return this.color;
   }
   
   public getForwardDirection(): THREE.Vector3 {

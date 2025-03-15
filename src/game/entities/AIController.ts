@@ -11,6 +11,12 @@ export class AIController {
   private stateTimer: number = 0;
   private targetPosition: THREE.Vector3 = new THREE.Vector3();
   
+  // Shooting parameters
+  private shootTimer: number = 0;
+  private shootCooldown: number = 2; // Base cooldown between shots
+  private shootProbability: number = 0.7; // Probability to shoot when conditions are met
+  private shootingEnabled: boolean = true; // Flag to enable/disable shooting
+  
   private readonly DETECTION_RANGE: number = 40;
   private readonly ATTACK_RANGE: number = 25;
   private readonly RETREAT_HEALTH: number = 30;
@@ -23,11 +29,17 @@ export class AIController {
     
     // Set initial state
     this.changeState('idle');
+    
+    // Randomize initial shoot timer to prevent all tanks from shooting at once
+    this.shootTimer = Math.random() * this.shootCooldown;
   }
   
   public update(deltaTime: number): void {
     // Update state timer
     this.stateTimer -= deltaTime;
+    
+    // Update shoot timer
+    this.shootTimer -= deltaTime;
     
     // Get distance to player
     const distanceToPlayer = this.getDistanceToPlayer();
@@ -50,6 +62,9 @@ export class AIController {
         this.executeRetreatState(deltaTime);
         break;
     }
+    
+    // Handle shooting logic
+    this.updateShooting(distanceToPlayer);
   }
   
   private updateState(distanceToPlayer: number): void {
@@ -100,16 +115,25 @@ export class AIController {
       case 'idle':
         this.stateTimer = 2 + Math.random() * 3;
         this.setRandomTargetPosition();
+        this.shootingEnabled = false; // Don't shoot in idle state
         break;
       case 'chase':
         this.stateTimer = 0.5;
+        this.shootingEnabled = true; // Can shoot while chasing, but less likely
+        this.shootProbability = 0.3;
         break;
       case 'attack':
         this.stateTimer = 0.5;
+        this.shootingEnabled = true; // Most likely to shoot in attack state
+        this.shootProbability = 0.7;
+        this.shootCooldown = 1.5; // Shoot more frequently in attack mode
         break;
       case 'retreat':
         this.stateTimer = 5 + Math.random() * 5;
         this.setRetreatPosition();
+        this.shootingEnabled = true; // Can shoot while retreating, but less frequently
+        this.shootProbability = 0.4;
+        this.shootCooldown = 3; // Longer cooldown while retreating
         break;
     }
   }
@@ -149,11 +173,6 @@ export class AIController {
       // We're at a good distance, just aim at the player
       this.aimAtTarget(deltaTime);
     }
-    
-    // Try to fire if we can
-    if (this.tank.canFire() && this.isAimedAtTarget()) {
-      this.tank.fire();
-    }
   }
   
   private executeRetreatState(deltaTime: number): void {
@@ -163,6 +182,42 @@ export class AIController {
     }
     
     this.moveTowardsTarget(deltaTime);
+  }
+  
+  private updateShooting(distanceToPlayer: number): void {
+    // Only attempt to shoot if enabled for current state and cooldown has expired
+    if (this.shootingEnabled && this.shootTimer <= 0 && this.tank.canFire()) {
+      // Higher probability to shoot when player is closer and we're aimed at them
+      let shootChance = this.shootProbability;
+      
+      // Adjust probability based on distance
+      if (distanceToPlayer < this.ATTACK_RANGE * 0.5) {
+        shootChance += 0.2; // More likely to shoot when very close
+      } else if (distanceToPlayer > this.ATTACK_RANGE) {
+        shootChance -= 0.2; // Less likely to shoot when far away
+      }
+      
+      // Adjust probability based on aim
+      if (this.isAimedAtTarget()) {
+        shootChance += 0.3; // Much more likely to shoot when aimed at player
+      } else {
+        shootChance -= 0.3; // Much less likely to shoot when not aimed
+      }
+      
+      // Clamp probability between 0.1 and 0.9
+      shootChance = Math.max(0.1, Math.min(0.9, shootChance));
+      
+      // Random chance to shoot
+      if (Math.random() < shootChance) {
+        this.tank.fire();
+        
+        // Set cooldown with some randomness
+        this.shootTimer = this.shootCooldown * (0.8 + Math.random() * 0.4);
+      } else {
+        // If we decided not to shoot, still set a shorter cooldown
+        this.shootTimer = 0.5;
+      }
+    }
   }
   
   private setRandomTargetPosition(): void {
@@ -296,5 +351,13 @@ export class AIController {
   
   private getDistanceToPlayer(): number {
     return this.tank.getPosition().distanceTo(this.playerTank.getPosition());
+  }
+  
+  // Method to be called from Game class
+  public tryShoot(): boolean {
+    if (this.shootingEnabled && this.tank.canFire() && this.isAimedAtTarget()) {
+      return true;
+    }
+    return false;
   }
 }

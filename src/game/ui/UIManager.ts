@@ -2,6 +2,8 @@ import * as THREE from 'three';
 
 export class UIManager {
   private healthElement: HTMLElement | null = null;
+  private healthBar: HTMLElement | null = null;
+  private healthFill: HTMLElement | null = null;
   private ammoElement: HTMLElement | null = null;
   private scoreElement: HTMLElement | null = null;
   private timerElement: HTMLElement | null = null;
@@ -27,6 +29,28 @@ export class UIManager {
     uiContainer.style.pointerEvents = 'none';
     uiContainer.style.fontFamily = 'Arial, sans-serif';
     document.body.appendChild(uiContainer);
+
+		// Create health bar	  
+		this.healthBar = document.createElement('div');
+		this.healthBar.id = 'health-bar';
+		this.healthBar.style.position = 'absolute';
+		this.healthBar.style.top = '10px';
+		this.healthBar.style.left = '20px';
+		this.healthBar.style.width = '200px';
+		this.healthBar.style.height = '20px';
+		this.healthBar.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+		this.healthBar.style.border = '2px solid white';
+		this.healthBar.style.borderRadius = '10px';
+		this.healthBar.style.overflow = 'hidden';
+		document.body.appendChild(this.healthBar);
+
+		this.healthFill = document.createElement('div');
+		this.healthFill.id = 'health-fill';
+		this.healthFill.style.width = '100%';
+		this.healthFill.style.height = '100%';
+		this.healthFill.style.backgroundColor = '#2ecc71';
+		this.healthFill.style.transition = 'width 0.3s, background-color 0.3s';
+		this.healthBar.appendChild(this.healthFill);
     
     // Create health display
     this.healthElement = document.createElement('div');
@@ -120,14 +144,18 @@ export class UIManager {
   public updateHealth(health: number): void {
     if (this.healthElement) {
       this.healthElement.textContent = `Health: ${Math.max(0, Math.floor(health))}`;
+				this.healthFill.style.width = `${Math.max(0, Math.floor(health))}%`;
       
       // Change color based on health
       if (health > 60) {
         this.healthElement.style.color = '#2ecc71'; // Green
+				this.healthFill.style.backgroundColor = '#2ecc71';
       } else if (health > 30) {
         this.healthElement.style.color = '#f39c12'; // Orange
+				this.healthFill.style.backgroundColor = '#f39c12';
       } else {
         this.healthElement.style.color = '#e74c3c'; // Red
+				this.healthFill.style.backgroundColor = '#e74c3c';
       }
     }
   }

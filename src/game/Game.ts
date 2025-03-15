@@ -305,10 +305,15 @@ export class Game {
         }
       });
       
-      // Update AI controllers
+      // Update AI controllers and handle AI shooting
       this.aiControllers.forEach((controller, index) => {
         if (index < this.enemyTanks.length) {
           controller.update(deltaTime);
+          
+          // Check if AI should shoot
+          if (controller.tryShoot()) {
+            this.fireProjectile(this.enemyTanks[index]);
+          }
         }
       });
       

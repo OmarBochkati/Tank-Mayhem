@@ -10,6 +10,7 @@ export class Projectile {
   private sourceId: string;
   private damage: number = 25;
   private radius: number = 0.3;
+  private isEnemyProjectile: boolean = false;
   
   constructor(scene: THREE.Scene, sourceTank: Tank) {
     this.scene = scene;
@@ -19,14 +20,23 @@ export class Projectile {
     this.position = sourceTank.getBarrelPosition();
     
     // Get the forward direction from the tank
-    // The key fix: we need to use the tank's forward direction
     this.direction = sourceTank.getForwardDirection().clone();
+    
+    // Check if this is an enemy projectile (for visual differentiation)
+    this.isEnemyProjectile = sourceTank.getColor() === 0xff0000;
   }
   
   public initialize(): void {
     // Create projectile mesh
     const geometry = new THREE.SphereGeometry(this.radius, 8, 8);
-    const material = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+    
+    // Use different colors for player and enemy projectiles
+    const material = new THREE.MeshPhongMaterial({ 
+      color: this.isEnemyProjectile ? 0xff6600 : 0x00aaff,
+      emissive: this.isEnemyProjectile ? 0x882200 : 0x003366,
+      emissiveIntensity: 0.5
+    });
+    
     this.mesh = new THREE.Mesh(geometry, material);
     
     // Position the projectile
@@ -34,6 +44,14 @@ export class Projectile {
     
     // Add to scene
     this.scene.add(this.mesh);
+    
+    // Add a point light to the projectile for visual effect
+    const light = new THREE.PointLight(
+      this.isEnemyProjectile ? 0xff6600 : 0x00aaff, 
+      0.7, 
+      5
+    );
+    this.mesh.add(light);
   }
   
   public update(deltaTime: number): void {
@@ -66,5 +84,9 @@ export class Projectile {
   
   public getDamage(): number {
     return this.damage;
+  }
+  
+  public isFromEnemy(): boolean {
+    return this.isEnemyProjectile;
   }
 }
