@@ -1,0 +1,244 @@
+:root {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+#game-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+#ui-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+#hud {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 10px;
+  border-radius: 5px;
+  width: 200px;
+  pointer-events: auto;
+}
+
+#health-bar {
+  width: 100%;
+  height: 20px;
+  background-color: #333;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+#health-fill {
+  width: 100%;
+  height: 100%;
+  background-color: #2ecc71;
+  transition: width 0.3s ease;
+}
+
+#ammo-counter, #timer {
+  font-size: 16px;
+  color: white;
+}
+
+.hud-button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  font-size: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  width: 100%;
+}
+
+.hud-button:hover {
+  background-color: #2980b9;
+}
+
+#controls-legend {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.85);
+  padding: 25px;
+  border-radius: 10px;
+  border: 2px solid #3498db;
+  width: 320px;
+  pointer-events: auto;
+  z-index: 200;
+}
+
+#controls-legend h3 {
+  color: #f39c12;
+  font-size: 1.5rem;
+  text-align: center;
+  margin-bottom: 15px;
+  text-shadow: 0 0 5px rgba(243, 156, 18, 0.5);
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.control-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.key {
+  background-color: #333;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-family: monospace;
+  font-weight: bold;
+  min-width: 60px;
+  text-align: center;
+  border: 1px solid #555;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.action {
+  color: #ecf0f1;
+  font-size: 14px;
+}
+
+.close-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #ccc;
+  font-size: 24px;
+  cursor: pointer;
+  width: auto;
+  padding: 0;
+  line-height: 1;
+}
+
+.close-button:hover {
+  color: white;
+}
+
+#menu, #game-over {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 40px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  pointer-events: auto;
+  z-index: 100;
+}
+
+#menu h1, #game-over h2 {
+  color: #f39c12;
+  font-size: 3rem;
+  text-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
+}
+
+button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  font-size: 18px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  width: 200px;
+}
+
+button:hover {
+  background-color: #2980b9;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.active {
+  display: flex;
+}
+
+@media (max-width: 768px) {
+  #hud {
+    width: 150px;
+  }
+  
+  #menu h1, #game-over h2 {
+    font-size: 2rem;
+  }
+  
+  button {
+    padding: 10px 20px;
+    font-size: 16px;
+    width: 180px;
+  }
+  
+  #controls-legend {
+    width: 280px;
+    padding: 20px;
+  }
+  
+  .key {
+    min-width: 50px;
+    font-size: 12px;
+  }
+  
+  .action {
+    font-size: 12px;
+  }
+}
