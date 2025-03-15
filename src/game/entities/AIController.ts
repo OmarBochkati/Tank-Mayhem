@@ -22,6 +22,14 @@ export class AIController {
   private readonly RETREAT_HEALTH: number = 30;
   private readonly MIN_DISTANCE: number = 15;
   
+  // Arena boundaries - adding these to prevent tanks from drifting out
+  private readonly ARENA_BOUNDS = {
+    minX: -48, // Slightly inside the actual arena bounds to account for tank radius
+    maxX: 48,
+    minZ: -48,
+    maxZ: 48
+  };
+  
   constructor(tank: Tank, playerTank: Tank, obstacles: Obstacle[]) {
     this.tank = tank;
     this.playerTank = playerTank;
@@ -221,14 +229,22 @@ export class AIController {
   }
   
   private setRandomTargetPosition(): void {
+    // Generate a random position within the arena bounds
     const angle = Math.random() * Math.PI * 2;
     const distance = 10 + Math.random() * 20;
     
-    this.targetPosition.set(
-      Math.cos(angle) * distance,
-      0,
-      Math.sin(angle) * distance
-    );
+    // Start with the tank's current position
+    const currentPos = this.tank.getPosition();
+    
+    // Calculate new position
+    let x = currentPos.x + Math.cos(angle) * distance;
+    let z = currentPos.z + Math.sin(angle) * distance;
+    
+    // Ensure the target position is within arena bounds
+    x = Math.max(this.ARENA_BOUNDS.minX, Math.min(this.ARENA_BOUNDS.maxX, x));
+    z = Math.max(this.ARENA_BOUNDS.minZ, Math.min(this.ARENA_BOUNDS.maxZ, z));
+    
+    this.targetPosition.set(x, 0, z);
   }
   
   private setRetreatPosition(): void {
@@ -236,10 +252,15 @@ export class AIController {
     const direction = new THREE.Vector3();
     direction.subVectors(this.tank.getPosition(), this.playerTank.getPosition()).normalize();
     
-    // Set target position away from player
-    this.targetPosition.copy(this.tank.getPosition()).add(
-      direction.multiplyScalar(30 + Math.random() * 20)
-    );
+    // Calculate retreat position
+    let x = this.tank.getPosition().x + direction.x * (30 + Math.random() * 10);
+    let z = this.tank.getPosition().z + direction.z * (30 + Math.random() * 10);
+    
+    // Ensure the retreat position is within arena bounds
+    x = Math.max(this.ARENA_BOUNDS.minX, Math.min(this.ARENA_BOUNDS.maxX, x));
+    z = Math.max(this.ARENA_BOUNDS.minZ, Math.min(this.ARENA_BOUNDS.maxZ, z));
+    
+    this.targetPosition.set(x, 0, z);
   }
   
   private moveTowardsTarget(deltaTime: number): void {
@@ -267,10 +288,24 @@ export class AIController {
       const position = this.tank.getPosition();
       const forward = this.tank.getForwardDirection();
       
-      position.x -= forward.x * 5 * deltaTime;
-      position.z -= forward.z * 5 * deltaTime;
+      // Calculate new position
+      let newX = position.x - forward.x * 5 * deltaTime;
+      let newZ = position.z - forward.z * 5 * deltaTime;
       
-      this.tank.setPosition(position.x, position.y, position.z);
+      // Ensure the new position is within arena bounds
+      newX = Math.max(this.ARENA_BOUNDS.minX, Math.min(this.ARENA_BOUNDS.maxX, newX));
+      newZ = Math.max(this.ARENA_BOUNDS.minZ, Math.min(this.ARENA_BOUNDS.maxZ, newZ));
+      
+      // Update tank position
+      this.tank.setPosition(newX, position.y, newZ);
+      
+      // If we're very close to the target, consider it reached
+      const distanceToTarget = this.tank.getPosition().distanceTo(this.targetPosition);
+      if (distanceToTarget < 2) {
+        if (this.state === 'idle') {
+          this.setRandomTargetPosition();
+        }
+      }
     }
   }
   
@@ -299,10 +334,16 @@ export class AIController {
       const position = this.tank.getPosition();
       const forward = this.tank.getForwardDirection();
       
-      position.x -= forward.x * 5 * deltaTime;
-      position.z -= forward.z * 5 * deltaTime;
+      // Calculate new position
+      let newX = position.x - forward.x * 5 * deltaTime;
+      let newZ = position.z - forward.z * 5 * deltaTime;
       
-      this.tank.setPosition(position.x, position.y, position.z);
+      // Ensure the new position is within arena bounds
+      newX = Math.max(this.ARENA_BOUNDS.minX, Math.min(this.ARENA_BOUNDS.maxX, newX));
+      newZ = Math.max(this.ARENA_BOUNDS.minZ, Math.min(this.ARENA_BOUNDS.maxZ, newZ));
+      
+      // Update tank position
+      this.tank.setPosition(newX, position.y, newZ);
     }
   }
   

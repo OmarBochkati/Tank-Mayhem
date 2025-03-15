@@ -119,7 +119,7 @@ export class UIManager {
     this.controlsElement.style.left = '20px';
     this.controlsElement.style.color = '#fff';
     this.controlsElement.style.fontSize = '14px';
-    this.controlsElement.style.textAlign = 'right';
+    this.controlsElement.style.textAlign = 'left';
     this.controlsElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
     this.controlsElement.style.padding = '10px';
     this.controlsElement.style.borderRadius = '5px';

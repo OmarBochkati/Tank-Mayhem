@@ -14,20 +14,53 @@ export class Obstacle {
     this.position = new THREE.Vector3(x, y, z);
     this.radius = radius;
     
-    // Larger obstacles have more health
-    this.maxHealth = 50 + radius * 20;
+    // Adjusted health calculation for smaller obstacles
+    this.maxHealth = 30 + radius * 15;
     this.health = this.maxHealth;
   }
   
   public initialize(): void {
-    // Create obstacle mesh
-    const geometry = new THREE.BoxGeometry(this.radius * 2, this.radius * 2, this.radius * 2);
-    const material = new THREE.MeshPhongMaterial({ color: 0x8B4513 }); // Brown color
+    // Create obstacle mesh - using a mix of shapes for variety
+    let geometry: THREE.BufferGeometry;
+    
+    // Randomly choose between different shapes for variety
+    const shapeType = Math.floor(Math.random() * 3);
+    
+    switch (shapeType) {
+      case 0:
+        // Box - smaller size
+        geometry = new THREE.BoxGeometry(this.radius * 1.8, this.radius * 1.8, this.radius * 1.8);
+        break;
+      case 1:
+        // Cylinder - smaller size
+        geometry = new THREE.CylinderGeometry(this.radius * 0.9, this.radius * 0.9, this.radius * 1.8, 8);
+        break;
+      case 2:
+      default:
+        // Rock-like shape - smaller size
+        geometry = new THREE.DodecahedronGeometry(this.radius * 0.9, 0);
+        break;
+    }
+    
+    // Vary the colors slightly for visual interest
+    const colorVariation = Math.random() * 0.2 - 0.1; // -0.1 to 0.1
+    const r = 0.55 + colorVariation;
+    const g = 0.27 + colorVariation;
+    const b = 0.08 + colorVariation;
+    
+    const material = new THREE.MeshPhongMaterial({ color: new THREE.Color(r, g, b) });
     this.mesh = new THREE.Mesh(geometry, material);
     
     // Position the obstacle
     this.mesh.position.copy(this.position);
     this.mesh.position.y = this.radius; // Center vertically
+    
+    // Add some random rotation for natural look
+    this.mesh.rotation.set(
+      Math.random() * Math.PI * 2,
+      Math.random() * Math.PI * 2,
+      Math.random() * Math.PI * 2
+    );
     
     // Add to scene
     this.scene.add(this.mesh);
@@ -82,9 +115,9 @@ export class Obstacle {
   }
   
   private showDestructionEffect(): void {
-    // Create debris particles
-    const particleCount = 20;
-    const particleGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+    // Create debris particles - fewer particles for smaller obstacles
+    const particleCount = Math.floor(10 + this.radius * 5);
+    const particleGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
     const particleMaterial = new THREE.MeshPhongMaterial({ 
       color: (this.mesh.material as THREE.MeshPhongMaterial).color 
     });

@@ -116,8 +116,8 @@ export class Game {
     // Create enemy tanks
     this.createEnemyTanks(3);
     
-    // Create obstacles
-    this.createObstacles(10);
+    // Create obstacles - reduced from 10 to 6
+    this.createObstacles(6);
     
     // Start the game timer
     this.uiManager.startTimer();
@@ -229,9 +229,16 @@ export class Game {
   
   private createObstacles(count: number): void {
     for (let i = 0; i < count; i++) {
-      const x = (Math.random() - 0.5) * 80;
-      const z = (Math.random() - 0.5) * 80;
-      const size = 2 + Math.random() * 5;
+      // Distribute obstacles more evenly around the arena
+      // Use polar coordinates to ensure better distribution
+      const radius = 15 + Math.random() * 30; // Distance from center (15-45)
+      const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.5); // Even angular distribution with some randomness
+      
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      
+      // Smaller size range - reduced from 2-7 to 1-3
+      const size = 1 + Math.random() * 2;
       
       const obstacle = new Obstacle(this.scene, x, 0, z, size);
       obstacle.initialize();

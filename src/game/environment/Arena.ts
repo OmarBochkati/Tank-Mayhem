@@ -26,7 +26,7 @@ export class Arena {
     // Create arena walls
     this.createWalls();
     
-    // Add some decorative elements
+    // Add some decorative elements - reduced quantity
     this.addDecorations();
   }
   
@@ -72,13 +72,15 @@ export class Arena {
   }
   
   private addDecorations(): void {
-    // Add some rocks
-    const rockGeometry = new THREE.DodecahedronGeometry(1, 0);
+    // Add some rocks - reduced quantity and size
+    const rockGeometry = new THREE.DodecahedronGeometry(0.8, 0);
     const rockMaterial = new THREE.MeshPhongMaterial({ color: 0x555555 });
     
-    for (let i = 0; i < 20; i++) {
+    // Reduced from 20 to 10 rocks
+    for (let i = 0; i < 10; i++) {
       const rock = new THREE.Mesh(rockGeometry, rockMaterial);
-      const scale = 0.5 + Math.random() * 1.5;
+      // Reduced scale range from 0.5-2.0 to 0.3-1.0
+      const scale = 0.3 + Math.random() * 0.7;
       rock.scale.set(scale, scale, scale);
       
       const x = (Math.random() - 0.5) * (this.width - 5);
@@ -97,26 +99,30 @@ export class Arena {
       this.scene.add(rock);
     }
     
-    // Add some trees
-    const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.7, 3, 8);
+    // Add some trees - reduced quantity and size
+    const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 2, 8);
     const trunkMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
-    const leavesGeometry = new THREE.ConeGeometry(2, 4, 8);
+    const leavesGeometry = new THREE.ConeGeometry(1.5, 3, 8);
     const leavesMaterial = new THREE.MeshPhongMaterial({ color: 0x228B22 });
     
-    for (let i = 0; i < 10; i++) {
+    // Reduced from 10 to 5 trees
+    for (let i = 0; i < 5; i++) {
       const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
       const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
       
-      leaves.position.y = 3.5;
+      leaves.position.y = 2.5;
       
       const tree = new THREE.Group();
       tree.add(trunk);
       tree.add(leaves);
       
-      const x = (Math.random() - 0.5) * (this.width - 10);
-      const z = (Math.random() - 0.5) * (this.depth - 10);
+      // Position trees more toward the edges to leave more open space
+      const distanceFromCenter = 30 + Math.random() * 15;
+      const angle = Math.random() * Math.PI * 2;
+      const x = Math.cos(angle) * distanceFromCenter;
+      const z = Math.sin(angle) * distanceFromCenter;
       
-      tree.position.set(x, 1.5, z);
+      tree.position.set(x, 1, z);
       
       tree.castShadow = true;
       tree.receiveShadow = true;
