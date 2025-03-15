@@ -127,7 +127,16 @@ export class Game {
   }
   
   public restart(): void {
+    // Clear all entities
     this.reset();
+    
+    // Recreate player tank if it was destroyed
+    if (!this.playerTank || !this.scene.getObjectById(this.playerTank.getMeshId())) {
+      this.playerTank = new Tank(this.scene, 0, 0, 0);
+      this.playerTank.initialize();
+    }
+    
+    // Start the game again
     this.start();
   }
   
@@ -269,7 +278,8 @@ export class Game {
         
         const prevPosition = tank.getPosition().clone();
         
-        tank.update(deltaTime);
+        // Pass camera to enemy tanks for health bar billboarding
+        tank.update(deltaTime, undefined, this.camera);
         
         // Check for arena boundaries
         this.enforceArenaBoundaries(tank);

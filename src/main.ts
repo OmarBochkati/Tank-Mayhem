@@ -133,7 +133,7 @@ function createUIElements() {
     gameOver.appendChild(restartButton);
   }
 
-  // Create controls legend
+  // Create controls legend - FIXED: moved to bottom-right corner
   let controls = document.getElementById('controls');
   if (!controls) {
     controls = document.createElement('div');
@@ -147,6 +147,8 @@ function createUIElements() {
     controls.style.borderRadius = '5px';
     controls.style.fontFamily = 'Arial, sans-serif';
     controls.style.fontSize = '14px';
+    controls.style.zIndex = '100'; // Ensure it's above the game but below popups
+    controls.style.pointerEvents = 'none'; // Make it non-interactive
     controls.innerHTML = `
       <p><strong>Controls:</strong></p>
       <p>W, S, A, D - Move tank</p>
@@ -157,13 +159,36 @@ function createUIElements() {
   }
 }
 
+// Global game instance
+let game: Game;
+
+// Function to handle restart button click
+function handleRestartClick() {
+  const gameOverElement = document.getElementById('game-over');
+  if (gameOverElement) {
+    gameOverElement.style.display = 'none';
+  }
+  
+  if (game) {
+    game.restart();
+  }
+}
+
 // Wait for DOM to be fully loaded before accessing elements
 document.addEventListener('DOMContentLoaded', () => {
   // Create UI elements
   createUIElements();
 
+  // Add direct event listener to restart button
+  document.body.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    if (target && target.id === 'restart-button') {
+      handleRestartClick();
+    }
+  });
+
   // Initialize the game
-  const game = new Game();
+  game = new Game();
   game.initialize();
 
   // Start the game
@@ -183,17 +208,15 @@ document.addEventListener('DOMContentLoaded', () => {
       finalScoreElement.textContent = score.toString();
       
       // Get high score from localStorage
-      const highScore = localStorage.getItem('tankGameHighScore') || '0';
-      highScoreElement.textContent = highScore;
+      let highScore = parseInt(localStorage.getItem('tankGameHighScore') || '0');
       
-      // Handle restart button
-      const restartButton = document.getElementById('restart-button');
-      if (restartButton) {
-        restartButton.onclick = () => {
-          gameOverElement.style.display = 'none';
-          game.restart();
-        };
+      // Update high score if current score is higher
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('tankGameHighScore', highScore.toString());
       }
+      
+      highScoreElement.textContent = highScore.toString();
     }
   };
 

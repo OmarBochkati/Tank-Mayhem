@@ -97,74 +97,28 @@ body {
   background-color: #2980b9;
 }
 
-#controls-legend {
+/* Fixed controls legend positioning */
+#controls {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: rgba(0, 0, 0, 0.85);
-  padding: 25px;
-  border-radius: 10px;
-  border: 2px solid #3498db;
-  width: 320px;
-  pointer-events: auto;
-  z-index: 200;
-}
-
-#controls-legend h3 {
-  color: #f39c12;
-  font-size: 1.5rem;
-  text-align: center;
-  margin-bottom: 15px;
-  text-shadow: 0 0 5px rgba(243, 156, 18, 0.5);
-}
-
-.controls-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-}
-
-.control-item {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.key {
-  background-color: #333;
+  bottom: 20px;
+  right: 20px;
+  background-color: rgba(0, 0, 0, 0.5);
   color: white;
-  padding: 5px 10px;
+  padding: 10px;
   border-radius: 5px;
-  font-family: monospace;
-  font-weight: bold;
-  min-width: 60px;
-  text-align: center;
-  border: 1px solid #555;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.action {
-  color: #ecf0f1;
+  font-family: Arial, sans-serif;
   font-size: 14px;
+  z-index: 100;
+  pointer-events: none;
+  max-width: 200px;
 }
 
-.close-button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: none;
-  border: none;
-  color: #ccc;
-  font-size: 24px;
-  cursor: pointer;
-  width: auto;
-  padding: 0;
-  line-height: 1;
+#controls p {
+  margin: 5px 0;
 }
 
-.close-button:hover {
-  color: white;
+#controls strong {
+  color: #f39c12;
 }
 
 #menu, #game-over {
@@ -180,7 +134,7 @@ body {
   align-items: center;
   gap: 20px;
   pointer-events: auto;
-  z-index: 100;
+  z-index: 1000;
 }
 
 #menu h1, #game-over h2 {
@@ -213,6 +167,62 @@ button:hover {
   display: flex;
 }
 
+/* Score popup animation */
+.score-popup {
+  position: absolute;
+  color: #ffff00;
+  font-size: 20px;
+  font-weight: bold;
+  text-shadow: 2px 2px 2px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 500;
+  animation: float-up 1.5s ease-out forwards;
+}
+
+@keyframes float-up {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+}
+
+/* Power-up message animation */
+.powerup-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 32px;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 1000;
+  animation: pulse 2s ease-out forwards;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+}
+
 @media (max-width: 768px) {
   #hud {
     width: 150px;
@@ -228,17 +238,8 @@ button:hover {
     width: 180px;
   }
   
-  #controls-legend {
-    width: 280px;
-    padding: 20px;
-  }
-  
-  .key {
-    min-width: 50px;
-    font-size: 12px;
-  }
-  
-  .action {
+  #controls {
+    max-width: 150px;
     font-size: 12px;
   }
 }
