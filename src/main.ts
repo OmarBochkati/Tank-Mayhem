@@ -37,21 +37,6 @@ function createUIElements() {
   }
   
 
-  // Create score display
-  let score = document.getElementById('score');
-  if (!score) {
-    score = document.createElement('div');
-    score.id = 'score';
-    score.style.position = 'absolute';
-    score.style.top = '60px';
-    score.style.left = '20px';
-    score.style.color = 'white';
-    score.style.fontSize = '24px';
-    score.style.fontFamily = 'Arial, sans-serif';
-    score.textContent = 'Score: 0';
-    document.body.appendChild(score);
-  }
-
   // Create game over screen
   let gameOver = document.getElementById('game-over');
   if (!gameOver) {

@@ -97,6 +97,7 @@ export class Game {
     
     // Set up event listeners
     window.addEventListener('resize', this.onWindowResize.bind(this));
+    window.addEventListener('restartGame', this.restart.bind(this));
     
     // Initialize input manager
     this.inputManager.initialize();
@@ -272,6 +273,18 @@ export class Game {
       this.enemyTanks.forEach((tank, index) => {
         // Check if tank is destroyed
         if (tank.getHealth() <= 0) {
+          // Award points for destroying an enemy tank
+          this.gameState.addScore(this.POINTS_PER_ENEMY_TANK);
+          
+          // Update UI
+          this.uiManager.updateScore(this.gameState.getScore());
+          
+          // Show score popup
+          this.uiManager.showScorePopup(
+            `+${this.POINTS_PER_ENEMY_TANK}`, 
+            tank.getPosition()
+          );
+          
           this.destroyEnemyTank(index);
           return;
         }
@@ -313,6 +326,7 @@ export class Game {
         this.createExplosion(this.playerTank.getPosition(), 5);
         this.playerTank.destroy();
         this.gameState.endGame();
+        this.uiManager.showGameOver(this.gameState.getScore());
         this.onGameOver(this.gameState.getScore());
       }
       
@@ -365,23 +379,21 @@ export class Game {
         if (collisionResult.hitTank) {
           const hitTank = collisionResult.hitTank;
           
-          // Check if tank was destroyed
-          if (hitTank.getHealth() <= 0) {
-            // If player hit an enemy tank
-            if (projectile.getSourceId() === this.playerTank.getId() && 
-                this.enemyTanks.includes(hitTank)) {
-              // Award points
-              this.gameState.addScore(this.POINTS_PER_ENEMY_TANK);
-              
-              // Update UI
-              this.uiManager.updateScore(this.gameState.getScore());
-              
-              // Show score popup
-              this.uiManager.showScorePopup(
-                `+${this.POINTS_PER_ENEMY_TANK}`, 
-                hitTank.getPosition()
-              );
-            }
+          // If player hit an enemy tank
+          if (projectile.getSourceId() === this.playerTank.getId() && 
+              this.enemyTanks.includes(hitTank)) {
+            // Award points for hitting an enemy tank (even if not destroyed)
+            const hitPoints = 10; // Points for just hitting a tank
+            this.gameState.addScore(hitPoints);
+            
+            // Update UI
+            this.uiManager.updateScore(this.gameState.getScore());
+            
+            // Show score popup
+            this.uiManager.showScorePopup(
+              `+${hitPoints}`, 
+              hitTank.getPosition()
+            );
           }
         }
         
@@ -430,6 +442,19 @@ export class Game {
       // Check for collisions with player
       if (this.physicsEngine.checkPowerUpCollision(powerUp, this.playerTank)) {
         powerUp.applyEffect(this.playerTank);
+        
+        // Award points for collecting a power-up
+        const powerUpPoints = 25;
+        this.gameState.addScore(powerUpPoints);
+        
+        // Update UI
+        this.uiManager.updateScore(this.gameState.getScore());
+        
+        // Show score popup
+        this.uiManager.showScorePopup(
+          `+${powerUpPoints}`, 
+          powerUp.getPosition()
+        );
         
         // Show effect message
         this.uiManager.showPowerUpMessage(powerUp.getType());

@@ -50,6 +50,16 @@ export class UIManager {
     this.ammoElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
     uiContainer.appendChild(this.ammoElement);
     
+    // Create score display
+    this.scoreElement = document.createElement('div');
+    this.scoreElement.id = 'score-display';
+    this.scoreElement.style.position = 'absolute';
+    this.scoreElement.style.top = '145px';
+    this.scoreElement.style.left = '20px';
+    this.scoreElement.style.color = '#fff';
+    this.scoreElement.style.fontSize = '18px';
+    this.scoreElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+    uiContainer.appendChild(this.scoreElement);
     
     // Create timer display
     this.timerElement = document.createElement('div');
@@ -82,7 +92,7 @@ export class UIManager {
     this.controlsElement.id = 'controls-display';
     this.controlsElement.style.position = 'absolute';
     this.controlsElement.style.bottom = '20px';
-    this.controlsElement.style.right = '20px';
+    this.controlsElement.style.left = '20px';
     this.controlsElement.style.color = '#fff';
     this.controlsElement.style.fontSize = '14px';
     this.controlsElement.style.textAlign = 'right';

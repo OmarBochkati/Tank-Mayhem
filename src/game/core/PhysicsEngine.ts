@@ -5,10 +5,9 @@ import { Obstacle } from '../environment/Obstacle';
 import { PowerUp } from '../entities/PowerUp';
 
 export class PhysicsEngine {
-  private static readonly COLLISION_THRESHOLD = 0.1;
-  
   constructor() {}
   
+  // Check if a tank collides with any obstacles or other tanks
   public checkTankCollision(tank: Tank, obstacles: Obstacle[], otherTanks: Tank[]): boolean {
     const tankPosition = tank.getPosition();
     const tankRadius = tank.getRadius();
@@ -18,29 +17,29 @@ export class PhysicsEngine {
       const obstaclePosition = obstacle.getPosition();
       const obstacleRadius = obstacle.getRadius();
       
-      const distance = new THREE.Vector2(
-        tankPosition.x - obstaclePosition.x,
-        tankPosition.z - obstaclePosition.z
-      ).length();
+      const distance = Math.sqrt(
+        Math.pow(tankPosition.x - obstaclePosition.x, 2) +
+        Math.pow(tankPosition.z - obstaclePosition.z, 2)
+      );
       
-      if (distance < tankRadius + obstacleRadius + PhysicsEngine.COLLISION_THRESHOLD) {
+      if (distance < tankRadius + obstacleRadius) {
         return true;
       }
     }
     
     // Check collision with other tanks
     for (const otherTank of otherTanks) {
-      if (tank === otherTank) continue;
+      if (otherTank.getId() === tank.getId()) continue;
       
       const otherPosition = otherTank.getPosition();
       const otherRadius = otherTank.getRadius();
       
-      const distance = new THREE.Vector2(
-        tankPosition.x - otherPosition.x,
-        tankPosition.z - otherPosition.z
-      ).length();
+      const distance = Math.sqrt(
+        Math.pow(tankPosition.x - otherPosition.x, 2) +
+        Math.pow(tankPosition.z - otherPosition.z, 2)
+      );
       
-      if (distance < tankRadius + otherRadius + PhysicsEngine.COLLISION_THRESHOLD) {
+      if (distance < tankRadius + otherRadius) {
         return true;
       }
     }
@@ -48,44 +47,42 @@ export class PhysicsEngine {
     return false;
   }
   
+  // Check if a projectile collides with any tanks or obstacles
   public checkProjectileCollisions(
     projectile: Projectile, 
     tanks: Tank[], 
     obstacles: Obstacle[]
   ): { 
-    hasCollided: boolean; 
-    hitTank: Tank | null; 
-    hitObstacle: Obstacle | null;
+    hasCollided: boolean, 
+    hitTank?: Tank, 
+    hitObstacle?: Obstacle 
   } {
     const projectilePosition = projectile.getPosition();
     const projectileRadius = projectile.getRadius();
-    const sourceId = projectile.getSourceId();
-    
-    const result = {
-      hasCollided: false,
-      hitTank: null,
-      hitObstacle: null
-    };
+    const projectileSourceId = projectile.getSourceId();
     
     // Check collision with tanks
     for (const tank of tanks) {
-      // Skip the tank that fired this projectile
-      if (tank.getId() === sourceId) continue;
+      // Skip the tank that fired the projectile
+      if (tank.getId() === projectileSourceId) continue;
       
       const tankPosition = tank.getPosition();
       const tankRadius = tank.getRadius();
       
-      const distance = new THREE.Vector3(
-        projectilePosition.x - tankPosition.x,
-        projectilePosition.y - tankPosition.y,
-        projectilePosition.z - tankPosition.z
-      ).length();
+      const distance = Math.sqrt(
+        Math.pow(projectilePosition.x - tankPosition.x, 2) +
+        Math.pow(projectilePosition.y - (tankPosition.y + 1), 2) + // Add 1 to y for tank height
+        Math.pow(projectilePosition.z - tankPosition.z, 2)
+      );
       
       if (distance < projectileRadius + tankRadius) {
+        // Apply damage to the tank
         tank.takeDamage(projectile.getDamage());
-        result.hasCollided = true;
-        result.hitTank = tank;
-        return result;
+        
+        return {
+          hasCollided: true,
+          hitTank: tank
+        };
       }
     }
     
@@ -94,106 +91,38 @@ export class PhysicsEngine {
       const obstaclePosition = obstacle.getPosition();
       const obstacleRadius = obstacle.getRadius();
       
-      const distance = new THREE.Vector3(
-        projectilePosition.x - obstaclePosition.x,
-        projectilePosition.y - obstaclePosition.y,
-        projectilePosition.z - obstaclePosition.z
-      ).length();
+      const distance = Math.sqrt(
+        Math.pow(projectilePosition.x - obstaclePosition.x, 2) +
+        Math.pow(projectilePosition.y - (obstaclePosition.y + obstacleRadius / 2), 2) +
+        Math.pow(projectilePosition.z - obstaclePosition.z, 2)
+      );
       
       if (distance < projectileRadius + obstacleRadius) {
+        // Apply damage to the obstacle
         obstacle.takeDamage(projectile.getDamage());
-        result.hasCollided = true;
-        result.hitObstacle = obstacle;
-        return result;
+        
+        return {
+          hasCollided: true,
+          hitObstacle: obstacle
+        };
       }
     }
     
-    // Check if projectile is out of bounds
-    const arenaSize = 100; // Should match the arena size
-    if (
-      Math.abs(projectilePosition.x) > arenaSize / 2 ||
-      Math.abs(projectilePosition.z) > arenaSize / 2
-    ) {
-      result.hasCollided = true;
-      return result;
-    }
-    
-    return result;
+    return { hasCollided: false };
   }
   
+  // Check if a power-up collides with a tank
   public checkPowerUpCollision(powerUp: PowerUp, tank: Tank): boolean {
     const powerUpPosition = powerUp.getPosition();
-    const tankPosition = tank.getPosition();
-    const distance = new THREE.Vector2(
-      powerUpPosition.x - tankPosition.x,
-      powerUpPosition.z - tankPosition.z
-    ).length();
-    
-    return distance < tank.getRadius() + powerUp.getRadius();
-  }
-  
-  public resolveCollision(tank: Tank, obstacles: Obstacle[], otherTanks: Tank[]): void {
+    const powerUpRadius = powerUp.getRadius();
     const tankPosition = tank.getPosition();
     const tankRadius = tank.getRadius();
     
-    // Resolve collision with obstacles
-    for (const obstacle of obstacles) {
-      const obstaclePosition = obstacle.getPosition();
-      const obstacleRadius = obstacle.getRadius();
-      
-      const dx = tankPosition.x - obstaclePosition.x;
-      const dz = tankPosition.z - obstaclePosition.z;
-      const distance = Math.sqrt(dx * dx + dz * dz);
-      
-      if (distance < tankRadius + obstacleRadius + PhysicsEngine.COLLISION_THRESHOLD) {
-        // Calculate push direction
-        const pushX = dx / distance;
-        const pushZ = dz / distance;
-        
-        // Calculate push amount
-        const pushAmount = tankRadius + obstacleRadius + PhysicsEngine.COLLISION_THRESHOLD - distance;
-        
-        // Push tank away from obstacle
-        tank.setPosition(
-          tankPosition.x + pushX * pushAmount,
-          tankPosition.y,
-          tankPosition.z + pushZ * pushAmount
-        );
-      }
-    }
+    const distance = Math.sqrt(
+      Math.pow(powerUpPosition.x - tankPosition.x, 2) +
+      Math.pow(powerUpPosition.z - tankPosition.z, 2)
+    );
     
-    // Resolve collision with other tanks
-    for (const otherTank of otherTanks) {
-      if (tank === otherTank) continue;
-      
-      const otherPosition = otherTank.getPosition();
-      const otherRadius = otherTank.getRadius();
-      
-      const dx = tankPosition.x - otherPosition.x;
-      const dz = tankPosition.z - otherPosition.z;
-      const distance = Math.sqrt(dx * dx + dz * dz);
-      
-      if (distance < tankRadius + otherRadius + PhysicsEngine.COLLISION_THRESHOLD) {
-        // Calculate push direction
-        const pushX = dx / distance;
-        const pushZ = dz / distance;
-        
-        // Calculate push amount
-        const pushAmount = (tankRadius + otherRadius + PhysicsEngine.COLLISION_THRESHOLD - distance) / 2;
-        
-        // Push both tanks away from each other
-        tank.setPosition(
-          tankPosition.x + pushX * pushAmount,
-          tankPosition.y,
-          tankPosition.z + pushZ * pushAmount
-        );
-        
-        otherTank.setPosition(
-          otherPosition.x - pushX * pushAmount,
-          otherPosition.y,
-          otherPosition.z - pushZ * pushAmount
-        );
-      }
-    }
+    return distance < powerUpRadius + tankRadius;
   }
 }
