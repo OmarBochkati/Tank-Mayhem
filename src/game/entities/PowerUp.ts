@@ -97,9 +97,11 @@ export class PowerUp {
         break;
       case PowerUpType.SPEED:
         // Speed boost would be implemented here
+				tank.setSpeed(tank.getSpeed() * 1.25)
         break;
       case PowerUpType.DAMAGE:
         // Damage boost would be implemented here
+				tank.setDamage(tank.getDamage() * 1.25)
         break;
     }
   }

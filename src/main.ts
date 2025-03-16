@@ -1,137 +1,138 @@
 import './style.css';
 import { Game } from './game/Game';
+import { DifficultyLevel } from './game/core/GameState';
 
-// Create UI elements
-function createUIElements() {
-  // Create game container if it doesn't exist
-  let gameContainer = document.getElementById('game-container');
-  if (!gameContainer) {
-    gameContainer = document.createElement('div');
-    gameContainer.id = 'game-container';
-    document.body.appendChild(gameContainer);
-  }
+// Create game container
+const gameContainer = document.createElement('div');
+gameContainer.id = 'game-container';
+document.body.appendChild(gameContainer);
 
+// Create difficulty selector for initial game start
+const createDifficultySelector = () => {
+  const container = document.createElement('div');
+  container.id = 'difficulty-selector';
+  container.style.position = 'absolute';
+  container.style.top = '0';
+  container.style.left = '0';
+  container.style.width = '100%';
+  container.style.height = '100%';
+  container.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+  container.style.display = 'flex';
+  container.style.flexDirection = 'column';
+  container.style.justifyContent = 'center';
+  container.style.alignItems = 'center';
+  container.style.color = '#fff';
+  container.style.fontFamily = 'Arial, sans-serif';
+  container.style.zIndex = '1000';
   
+  const title = document.createElement('h1');
+  title.textContent = 'Tank Mayhem';
+  title.style.fontSize = '48px';
+  title.style.marginBottom = '20px';
+  title.style.color = '#3498db';
+  title.style.textShadow = '0 0 10px rgba(52, 152, 219, 0.7)';
+  container.appendChild(title);
   
-
-  // Create game over screen
-  let gameOver = document.getElementById('game-over');
-  if (!gameOver) {
-    gameOver = document.createElement('div');
-    gameOver.id = 'game-over';
-    gameOver.style.position = 'absolute';
-    gameOver.style.top = '50%';
-    gameOver.style.left = '50%';
-    gameOver.style.transform = 'translate(-50%, -50%)';
-    gameOver.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-    gameOver.style.color = 'white';
-    gameOver.style.padding = '30px';
-    gameOver.style.borderRadius = '10px';
-    gameOver.style.textAlign = 'center';
-    gameOver.style.display = 'none';
-    gameOver.style.zIndex = '1000';
-    document.body.appendChild(gameOver);
-
-    const gameOverTitle = document.createElement('h2');
-    gameOverTitle.textContent = 'Game Over';
-    gameOver.appendChild(gameOverTitle);
-
-    const scoreText = document.createElement('p');
-    scoreText.textContent = 'Your Score: ';
-    const finalScore = document.createElement('span');
-    finalScore.id = 'final-score';
-    finalScore.textContent = '0';
-    scoreText.appendChild(finalScore);
-    gameOver.appendChild(scoreText);
-
-    const highScoreText = document.createElement('p');
-    highScoreText.textContent = 'High Score: ';
-    const highScore = document.createElement('span');
-    highScore.id = 'high-score';
-    highScore.textContent = '0';
-    highScoreText.appendChild(highScore);
-    gameOver.appendChild(highScoreText);
-
-    const restartButton = document.createElement('button');
-    restartButton.id = 'restart-button';
-    restartButton.textContent = 'Play Again';
-    restartButton.style.padding = '10px 20px';
-    restartButton.style.backgroundColor = '#2ecc71';
-    restartButton.style.border = 'none';
-    restartButton.style.borderRadius = '5px';
-    restartButton.style.color = 'white';
-    restartButton.style.fontSize = '16px';
-    restartButton.style.cursor = 'pointer';
-    restartButton.style.marginTop = '20px';
-    gameOver.appendChild(restartButton);
-  }
-
+  const subtitle = document.createElement('h2');
+  subtitle.textContent = 'Select Difficulty';
+  subtitle.style.fontSize = '24px';
+  subtitle.style.marginBottom = '40px';
+  container.appendChild(subtitle);
   
-}
-
-// Global game instance
-let game: Game;
-
-// Function to handle restart button click
-function handleRestartClick() {
-  const gameOverElement = document.getElementById('game-over');
-  if (gameOverElement) {
-    gameOverElement.style.display = 'none';
-  }
+  const buttonsContainer = document.createElement('div');
+  buttonsContainer.style.display = 'flex';
+  buttonsContainer.style.gap = '20px';
   
-  if (game) {
-    game.restart();
-  }
-}
-
-// Wait for DOM to be fully loaded before accessing elements
-document.addEventListener('DOMContentLoaded', () => {
-  // Create UI elements
-  createUIElements();
-
-  // Add direct event listener to restart button
-  document.body.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement;
-    if (target && target.id === 'restart-button') {
-      handleRestartClick();
-    }
-  });
-
-  // Initialize the game
-  game = new Game();
-  game.initialize();
-
-  // Start the game
-  game.start();
-
-  // Handle game over
-  game.onGameOver = (score: number) => {
-    const gameOverElement = document.getElementById('game-over');
-    const finalScoreElement = document.getElementById('final-score');
-    const highScoreElement = document.getElementById('high-score');
+  const createDifficultyButton = (text: string, difficulty: DifficultyLevel, color: string, description: string) => {
+    const buttonWrapper = document.createElement('div');
+    buttonWrapper.style.display = 'flex';
+    buttonWrapper.style.flexDirection = 'column';
+    buttonWrapper.style.alignItems = 'center';
+    buttonWrapper.style.width = '150px';
     
-    if (gameOverElement && finalScoreElement && highScoreElement) {
-      // Show game over screen
-      gameOverElement.style.display = 'block';
-      
-      // Update score display
-      finalScoreElement.textContent = score.toString();
-      
-      // Get high score from localStorage
-      let highScore = parseInt(localStorage.getItem('tankGameHighScore') || '0');
-      
-      // Update high score if current score is higher
-      if (score > highScore) {
-        highScore = score;
-        localStorage.setItem('tankGameHighScore', highScore.toString());
-      }
-      
-      highScoreElement.textContent = highScore.toString();
-    }
+    const button = document.createElement('button');
+    button.textContent = text;
+    button.style.width = '100%';
+    button.style.padding = '15px 0';
+    button.style.fontSize = '18px';
+    button.style.backgroundColor = color;
+    button.style.color = '#fff';
+    button.style.border = 'none';
+    button.style.borderRadius = '5px';
+    button.style.cursor = 'pointer';
+    button.style.transition = 'transform 0.2s, opacity 0.2s';
+    
+    button.addEventListener('mouseover', () => {
+      button.style.transform = 'scale(1.05)';
+      button.style.opacity = '0.9';
+    });
+    
+    button.addEventListener('mouseout', () => {
+      button.style.transform = 'scale(1)';
+      button.style.opacity = '1';
+    });
+    
+    button.addEventListener('click', () => {
+      document.body.removeChild(container);
+      startGame(difficulty);
+    });
+    
+    const desc = document.createElement('div');
+    desc.textContent = description;
+    desc.style.fontSize = '14px';
+    desc.style.textAlign = 'center';
+    desc.style.marginTop = '10px';
+    desc.style.color = '#ccc';
+    desc.style.height = '60px';
+    
+    buttonWrapper.appendChild(button);
+    buttonWrapper.appendChild(desc);
+    
+    return buttonWrapper;
   };
+  
+  buttonsContainer.appendChild(createDifficultyButton(
+    'Easy', 
+    DifficultyLevel.EASY, 
+    '#2ecc71',
+    'Fewer enemies, slower tanks, and more health. Perfect for beginners.'
+  ));
+  
+  buttonsContainer.appendChild(createDifficultyButton(
+    'Medium', 
+    DifficultyLevel.MEDIUM, 
+    '#3498db',
+    'Balanced gameplay with moderate challenge. The standard experience.'
+  ));
+  
+  buttonsContainer.appendChild(createDifficultyButton(
+    'Hard', 
+    DifficultyLevel.HARD, 
+    '#f39c12',
+    'More enemies, faster tanks, and tougher obstacles. For experienced players.'
+  ));
+  
+  buttonsContainer.appendChild(createDifficultyButton(
+    'Insane', 
+    DifficultyLevel.INSANE, 
+    '#e74c3c',
+    'Maximum enemies, deadly accurate AI, and minimal power-ups. Good luck!'
+  ));
+  
+  container.appendChild(buttonsContainer);
+  
+  return container;
+};
 
-  // Handle window resize
-  window.addEventListener('resize', () => {
-    // Game handles resize internally
-  });
-});
+// Initialize the game
+const game = new Game();
+game.initialize();
+
+// Show difficulty selector
+document.body.appendChild(createDifficultySelector());
+
+// Start the game with selected difficulty
+function startGame(difficulty: DifficultyLevel) {
+  game.setDifficulty(difficulty);
+  game.start();
+}

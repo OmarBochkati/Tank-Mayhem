@@ -30,6 +30,7 @@ export class Tank {
   private reloadTimer: number = 0;
   private fireRate: number = 0.5;
   private fireTimer: number = 0;
+  private damage: number = 20; // Damage dealt by projectiles
   
   private radius: number = 2;
   private color: number = 0x3498db;
@@ -262,8 +263,35 @@ export class Tank {
     return this.health;
   }
   
+  public setHealth(health: number): void {
+    this.health = health;
+    this.updateHealthBar();
+  }
+  
   public getMaxHealth(): number {
     return this.maxHealth;
+  }
+  
+  public setMaxHealth(maxHealth: number): void {
+    this.maxHealth = maxHealth;
+    this.health = maxHealth;
+    this.updateHealthBar();
+  }
+  
+  public getDamage(): number {
+    return this.damage;
+  }
+  
+  public setDamage(damage: number): void {
+    this.damage = damage;
+  }
+  
+  public getSpeed(): number {
+    return this.speed;
+  }
+  
+  public setSpeed(speed: number): void {
+    this.speed = speed;
   }
   
   public takeDamage(amount: number): void {

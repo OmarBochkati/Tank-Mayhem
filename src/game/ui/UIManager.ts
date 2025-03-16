@@ -1,14 +1,18 @@
 import * as THREE from 'three';
+import { DifficultyLevel } from '../core/GameState';
 
 export class UIManager {
   private healthElement: HTMLElement | null = null;
   private healthBar: HTMLElement | null = null;
   private healthFill: HTMLElement | null = null;
+  private speedElement: HTMLElement | null = null;
+  private damageElement: HTMLElement | null = null;
   private ammoElement: HTMLElement | null = null;
   private scoreElement: HTMLElement | null = null;
   private timerElement: HTMLElement | null = null;
   private messageElement: HTMLElement | null = null;
   private controlsElement: HTMLElement | null = null;
+  private difficultyElement: HTMLElement | null = null;
   
   private startTime: number = 0;
   private scorePopups: { element: HTMLElement, expires: number }[] = [];
@@ -22,10 +26,10 @@ export class UIManager {
     const uiContainer = document.createElement('div');
     uiContainer.id = 'ui-container';
     uiContainer.style.position = 'absolute';
-    uiContainer.style.top = '0';
-    uiContainer.style.left = '0';
-    uiContainer.style.width = '100%';
-    uiContainer.style.height = '100%';
+    uiContainer.style.top = '5%';
+    uiContainer.style.left = '5%';
+    uiContainer.style.width = '80%';
+    uiContainer.style.height = '80%';
     uiContainer.style.pointerEvents = 'none';
     uiContainer.style.fontFamily = 'Arial, sans-serif';
     document.body.appendChild(uiContainer);
@@ -67,7 +71,7 @@ export class UIManager {
     this.ammoElement = document.createElement('div');
     this.ammoElement.id = 'ammo-display';
     this.ammoElement.style.position = 'absolute';
-    this.ammoElement.style.top = '90px';
+    this.ammoElement.style.top = '125px';
     this.ammoElement.style.left = '20px';
     this.ammoElement.style.color = '#fff';
     this.ammoElement.style.fontSize = '18px';
@@ -84,6 +88,28 @@ export class UIManager {
     this.scoreElement.style.fontSize = '18px';
     this.scoreElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
     uiContainer.appendChild(this.scoreElement);
+
+		// Create damage display
+    this.damageElement = document.createElement('div');
+    this.damageElement.id = 'damage-display';
+    this.damageElement.style.position = 'absolute';
+    this.damageElement.style.top = '165px';
+    this.damageElement.style.left = '20px';
+    this.damageElement.style.color = '#fff';
+    this.damageElement.style.fontSize = '18px';
+    this.damageElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+    uiContainer.appendChild(this.damageElement);
+
+		// Create speed display
+    this.speedElement = document.createElement('div');
+    this.speedElement.id = 'speed-display';
+    this.speedElement.style.position = 'absolute';
+    this.speedElement.style.top = '185px';
+    this.speedElement.style.left = '20px';
+    this.speedElement.style.color = '#fff';
+    this.speedElement.style.fontSize = '18px';
+    this.speedElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+    uiContainer.appendChild(this.speedElement);
     
     // Create timer display
     this.timerElement = document.createElement('div');
@@ -95,6 +121,18 @@ export class UIManager {
     this.timerElement.style.fontSize = '18px';
     this.timerElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
     uiContainer.appendChild(this.timerElement);
+    
+    // Create difficulty display
+    this.difficultyElement = document.createElement('div');
+    this.difficultyElement.id = 'difficulty-display';
+    this.difficultyElement.style.position = 'absolute';
+    this.difficultyElement.style.top = '60px';
+    this.difficultyElement.style.right = '20px';
+    this.difficultyElement.style.color = '#fff';
+    this.difficultyElement.style.fontSize = '18px';
+    this.difficultyElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+    this.difficultyElement.textContent = 'Difficulty: Medium';
+    uiContainer.appendChild(this.difficultyElement);
     
     // Create message display
     this.messageElement = document.createElement('div');
@@ -136,10 +174,24 @@ export class UIManager {
     
     // Set initial values
     this.updateHealth(100);
+    this.updateSpeed(20);
+    this.updateDamage(20);
     this.updateAmmo(5, 5);
     this.updateScore(0);
     this.updateTimer(0);
   }
+
+  public updateSpeed(speed: number): void {
+    if (this.speedElement) {
+      this.speedElement.textContent = `Speed: ${Math.max(0, Math.floor(speed))}`;
+    }
+  }	
+
+	public updateDamage(speed: number): void {
+		if (this.damageElement) {
+			this.damageElement.textContent = `Damage: ${Math.max(0, Math.floor(speed))}`;
+		}
+  }	
   
   public updateHealth(health: number): void {
     if (this.healthElement) {
@@ -181,6 +233,30 @@ export class UIManager {
     }
   }
   
+  public updateDifficulty(difficultyName: string): void {
+    if (this.difficultyElement) {
+      this.difficultyElement.textContent = `Difficulty: ${difficultyName}`;
+      
+      // Change color based on difficulty
+      switch (difficultyName) {
+        case 'Easy':
+          this.difficultyElement.style.color = '#2ecc71'; // Green
+          break;
+        case 'Medium':
+          this.difficultyElement.style.color = '#3498db'; // Blue
+          break;
+        case 'Hard':
+          this.difficultyElement.style.color = '#f39c12'; // Orange
+          break;
+        case 'Insane':
+          this.difficultyElement.style.color = '#e74c3c'; // Red
+          break;
+        default:
+          this.difficultyElement.style.color = '#fff'; // White
+      }
+    }
+  }
+  
   public startTimer(): void {
     this.startTime = Date.now();
   }
@@ -219,17 +295,17 @@ export class UIManager {
     let message = '';
     
     switch (type) {
-      case 'health':
+      case 0:
         message = 'Health Restored!';
         break;
-      case 'ammo':
+      case 1:
         message = 'Ammo Replenished!';
         break;
-      case 'speed':
+      case 2:
         message = 'Speed Boost!';
         break;
       default:
-        message = 'Power-Up Collected!';
+        message = `${type} Power-Up Collected!`;
     }
     
     this.showMessage(message, 2000);
@@ -331,6 +407,61 @@ export class UIManager {
       gameOverContainer.appendChild(highScoreDisplay);
     }
     
+    // Difficulty selection for next game
+    const difficultyContainer = document.createElement('div');
+    difficultyContainer.style.display = 'flex';
+    difficultyContainer.style.flexDirection = 'column';
+    difficultyContainer.style.alignItems = 'center';
+    difficultyContainer.style.marginBottom = '20px';
+    
+    const difficultyLabel = document.createElement('div');
+    difficultyLabel.textContent = 'Select Difficulty:';
+    difficultyLabel.style.fontSize = '18px';
+    difficultyLabel.style.marginBottom = '10px';
+    difficultyContainer.appendChild(difficultyLabel);
+    
+    const difficultyButtonsContainer = document.createElement('div');
+    difficultyButtonsContainer.style.display = 'flex';
+    difficultyButtonsContainer.style.gap = '10px';
+    
+    const createDifficultyButton = (text: string, difficulty: DifficultyLevel, color: string) => {
+      const button = document.createElement('button');
+      button.textContent = text;
+      button.style.padding = '8px 15px';
+      button.style.fontSize = '16px';
+      button.style.backgroundColor = color;
+      button.style.color = '#fff';
+      button.style.border = 'none';
+      button.style.borderRadius = '5px';
+      button.style.cursor = 'pointer';
+      button.style.transition = 'opacity 0.3s';
+      button.style.pointerEvents = 'auto';
+      
+      button.addEventListener('mouseover', () => {
+        button.style.opacity = '0.8';
+      });
+      
+      button.addEventListener('mouseout', () => {
+        button.style.opacity = '1';
+      });
+      
+      button.addEventListener('click', () => {
+        window.dispatchEvent(new CustomEvent('changeDifficulty', {
+          detail: { difficulty }
+        }));
+      });
+      
+      return button;
+    };
+    
+    difficultyButtonsContainer.appendChild(createDifficultyButton('Easy', DifficultyLevel.EASY, '#2ecc71'));
+    difficultyButtonsContainer.appendChild(createDifficultyButton('Medium', DifficultyLevel.MEDIUM, '#3498db'));
+    difficultyButtonsContainer.appendChild(createDifficultyButton('Hard', DifficultyLevel.HARD, '#f39c12'));
+    difficultyButtonsContainer.appendChild(createDifficultyButton('Insane', DifficultyLevel.INSANE, '#e74c3c'));
+    
+    difficultyContainer.appendChild(difficultyButtonsContainer);
+    gameOverContainer.appendChild(difficultyContainer);
+    
     // Restart button
     const restartButton = document.createElement('button');
     restartButton.textContent = 'Play Again';
@@ -393,6 +524,8 @@ export class UIManager {
     this.updateAmmo(5, 5);
     this.updateScore(0);
     this.updateTimer(0);
+    this.updateSpeed(20);
+    this.updateDamage(20);
     
     // Clear any score popups
     this.scorePopups.forEach(popup => {

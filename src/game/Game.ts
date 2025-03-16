@@ -3,7 +3,7 @@ import { Tank } from './entities/Tank';
 import { Arena } from './environment/Arena';
 import { InputManager } from './core/InputManager';
 import { PhysicsEngine } from './core/PhysicsEngine';
-import { GameState, GameMode } from './core/GameState';
+import { GameState, GameMode, DifficultyLevel } from './core/GameState';
 import { AIController } from './entities/AIController';
 import { Projectile } from './entities/Projectile';
 import { Obstacle } from './environment/Obstacle';
@@ -44,12 +44,15 @@ export class Game {
   private readonly POINTS_PER_ENEMY_TANK = 100;
   private readonly POINTS_PER_OBSTACLE = 10;
   
-  // Game settings
+  // Game settings - these will be adjusted based on difficulty
   private respawnEnemyDelay: number = 5; // seconds
   private respawnEnemyTimer: number = 0;
-  private maxEnemyTanks: number = 5;
+  private maxEnemyTanks: number = 6;
   private powerUpSpawnInterval: number = 15; // seconds
   private powerUpTimer: number = 10; // Start first power-up after 10 seconds
+  private enemyTankHealth: number = 100;
+  private enemyTankSpeed: number = 10;
+  private enemyTankDamage: number = 20;
   
   public onGameOver: (score: number) => void = () => {};
   
@@ -98,6 +101,9 @@ export class Game {
     // Set up event listeners
     window.addEventListener('resize', this.onWindowResize.bind(this));
     window.addEventListener('restartGame', this.restart.bind(this));
+    window.addEventListener('changeDifficulty', (e: CustomEvent) => {
+      this.setDifficulty(e.detail.difficulty);
+    });
     
     // Initialize input manager
     this.inputManager.initialize();
@@ -110,14 +116,17 @@ export class Game {
     this.gameState.setGameMode(GameMode.SINGLE_PLAYER);
     this.gameState.startGame();
     
+    // Apply difficulty settings
+    this.applyDifficultySettings();
+    
     // Reset player tank
     this.playerTank.reset();
     
     // Create enemy tanks
-    this.createEnemyTanks(3);
+    this.createEnemyTanks(this.getInitialEnemyCount());
     
-    // Create obstacles - reduced from 10 to 6
-    this.createObstacles(6);
+    // Create obstacles - adjusted based on difficulty
+    this.createObstacles(this.getObstacleCount());
     
     // Start the game timer
     this.uiManager.startTimer();
@@ -125,6 +134,9 @@ export class Game {
     // Reset timers
     this.respawnEnemyTimer = this.respawnEnemyDelay;
     this.powerUpTimer = 10;
+    
+    // Show difficulty message
+    this.uiManager.showMessage(`Difficulty: ${this.gameState.getDifficultyName()}`, 2000);
   }
   
   public restart(): void {
@@ -167,6 +179,92 @@ export class Game {
     this.uiManager.reset();
   }
   
+  public setDifficulty(difficulty: DifficultyLevel): void {
+    this.gameState.setDifficultyLevel(difficulty);
+    
+    // If game is already running, apply the new settings
+    if (this.gameState.isGameRunning()) {
+      this.applyDifficultySettings();
+      this.uiManager.showMessage(`Difficulty changed to: ${this.gameState.getDifficultyName()}`, 2000);
+    }
+  }
+  
+  private applyDifficultySettings(): void {
+    const difficulty = this.gameState.getDifficultyLevel();
+    
+    switch (difficulty) {
+      case DifficultyLevel.EASY:
+        this.maxEnemyTanks = 3;
+        this.respawnEnemyDelay = 8;
+        this.powerUpSpawnInterval = 10;
+        this.enemyTankHealth = 80;
+        this.enemyTankSpeed = 8;
+        this.enemyTankDamage = 15;
+        break;
+        
+      case DifficultyLevel.MEDIUM:
+        this.maxEnemyTanks = 5;
+        this.respawnEnemyDelay = 5;
+        this.powerUpSpawnInterval = 15;
+        this.enemyTankHealth = 100;
+        this.enemyTankSpeed = 10;
+        this.enemyTankDamage = 20;
+        break;
+        
+      case DifficultyLevel.HARD:
+        this.maxEnemyTanks = 7;
+        this.respawnEnemyDelay = 3;
+        this.powerUpSpawnInterval = 20;
+        this.enemyTankHealth = 120;
+        this.enemyTankSpeed = 12;
+        this.enemyTankDamage = 25;
+        break;
+        
+      case DifficultyLevel.INSANE:
+        this.maxEnemyTanks = 10;
+        this.respawnEnemyDelay = 2;
+        this.powerUpSpawnInterval = 30;
+        this.enemyTankHealth = 150;
+        this.enemyTankSpeed = 15;
+        this.enemyTankDamage = 35;
+        break;
+    }
+  }
+  
+  private getInitialEnemyCount(): number {
+    const difficulty = this.gameState.getDifficultyLevel();
+    
+    switch (difficulty) {
+      case DifficultyLevel.EASY:
+        return 2;
+      case DifficultyLevel.MEDIUM:
+        return 3;
+      case DifficultyLevel.HARD:
+        return 4;
+      case DifficultyLevel.INSANE:
+        return 6;
+      default:
+        return 3;
+    }
+  }
+  
+  private getObstacleCount(): number {
+    const difficulty = this.gameState.getDifficultyLevel();
+    
+    switch (difficulty) {
+      case DifficultyLevel.EASY:
+        return 4;
+      case DifficultyLevel.MEDIUM:
+        return 6;
+      case DifficultyLevel.HARD:
+        return 8;
+      case DifficultyLevel.INSANE:
+        return 10;
+      default:
+        return 6;
+    }
+  }
+  
   private createEnemyTanks(count: number): void {
     for (let i = 0; i < count; i++) {
       this.spawnEnemyTank();
@@ -190,7 +288,7 @@ export class Game {
       );
       
       // Ensure tank is at least 20 units away from player
-      if (distToPlayer > 20) {
+      if (distToPlayer > 10) {
         validPosition = true;
         
         // Check distance from other tanks
@@ -220,10 +318,20 @@ export class Game {
     tank.initialize();
     tank.setColor(0xff0000);
     
+    // Apply difficulty-based settings
+    tank.setMaxHealth(this.enemyTankHealth);
+    tank.setHealth(this.enemyTankHealth);
+    tank.setSpeed(this.enemyTankSpeed);
+    tank.setDamage(this.enemyTankDamage);
+    
     this.enemyTanks.push(tank);
     
     // Create AI controller for this tank
     const aiController = new AIController(tank, this.playerTank, this.obstacles);
+    
+    // Set AI difficulty
+    aiController.setDifficulty(this.gameState.getDifficultyLevel());
+    
     this.aiControllers.push(aiController);
   }
   
@@ -237,8 +345,19 @@ export class Game {
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
       
-      // Smaller size range - reduced from 2-7 to 1-3
-      const size = 1 + Math.random() * 2;
+      // Size based on difficulty
+      let sizeMin = 1;
+      let sizeMax = 3;
+      
+      if (this.gameState.getDifficultyLevel() === DifficultyLevel.HARD) {
+        sizeMin = 1.5;
+        sizeMax = 4;
+      } else if (this.gameState.getDifficultyLevel() === DifficultyLevel.INSANE) {
+        sizeMin = 2;
+        sizeMax = 5;
+      }
+      
+      const size = sizeMin + Math.random() * (sizeMax - sizeMin);
       
       const obstacle = new Obstacle(this.scene, x, 0, z, size);
       obstacle.initialize();
@@ -343,6 +462,9 @@ export class Game {
       }
       
       // Update UI
+      this.uiManager.updateHealth(this.playerTank.getHealth());
+      this.uiManager.updateSpeed(this.playerTank.getSpeed());
+      this.uiManager.updateDamage(this.playerTank.getDamage());
       this.uiManager.updateHealth(this.playerTank.getHealth());
       this.uiManager.updateAmmo(this.playerTank.getCurrentAmmo(), this.playerTank.getMaxAmmo());
       this.uiManager.updateScore(this.gameState.getScore());

@@ -4,9 +4,17 @@ export enum GameMode {
   CHALLENGE
 }
 
+export enum DifficultyLevel {
+  EASY,
+  MEDIUM,
+  HARD,
+  INSANE
+}
+
 export class GameState {
   private gameRunning: boolean = false;
   private gameMode: GameMode = GameMode.SINGLE_PLAYER;
+  private difficultyLevel: DifficultyLevel = DifficultyLevel.MEDIUM;
   private score: number = 0;
   private startTime: number = 0;
   private elapsedTime: number = 0;
@@ -53,12 +61,52 @@ export class GameState {
     this.gameMode = mode;
   }
   
+  public getDifficultyLevel(): DifficultyLevel {
+    return this.difficultyLevel;
+  }
+  
+  public setDifficultyLevel(level: DifficultyLevel): void {
+    this.difficultyLevel = level;
+  }
+  
+  public getDifficultyName(): string {
+    switch (this.difficultyLevel) {
+      case DifficultyLevel.EASY:
+        return "Easy";
+      case DifficultyLevel.MEDIUM:
+        return "Medium";
+      case DifficultyLevel.HARD:
+        return "Hard";
+      case DifficultyLevel.INSANE:
+        return "Insane";
+      default:
+        return "Medium";
+    }
+  }
+  
   public getScore(): number {
     return this.score;
   }
   
   public addScore(points: number): void {
-    this.score += points;
+    // Apply score multiplier based on difficulty
+    let multiplier = 1.0;
+    switch (this.difficultyLevel) {
+      case DifficultyLevel.EASY:
+        multiplier = 0.8;
+        break;
+      case DifficultyLevel.MEDIUM:
+        multiplier = 1.0;
+        break;
+      case DifficultyLevel.HARD:
+        multiplier = 1.5;
+        break;
+      case DifficultyLevel.INSANE:
+        multiplier = 2.0;
+        break;
+    }
+    
+    this.score += Math.floor(points * multiplier);
   }
   
   public getElapsedTime(): number {

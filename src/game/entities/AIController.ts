@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { Tank } from './Tank';
 import { Obstacle } from '../environment/Obstacle';
+import { DifficultyLevel } from '../core/GameState';
 
 export class AIController {
   private tank: Tank;
   private playerTank: Tank;
   private obstacles: Obstacle[];
   
-  private state: 'idle' | 'chase' | 'attack' | 'retreat' = 'idle';
+  private state: 'idle' | 'chase' | 'attack' | 'retreat' = 'chase';
   private stateTimer: number = 0;
   private targetPosition: THREE.Vector3 = new THREE.Vector3();
   
@@ -17,10 +18,13 @@ export class AIController {
   private shootProbability: number = 0.7; // Probability to shoot when conditions are met
   private shootingEnabled: boolean = true; // Flag to enable/disable shooting
   
-  private readonly DETECTION_RANGE: number = 40;
-  private readonly ATTACK_RANGE: number = 25;
-  private readonly RETREAT_HEALTH: number = 30;
-  private readonly MIN_DISTANCE: number = 15;
+  // AI difficulty parameters
+  private difficulty: DifficultyLevel = DifficultyLevel.MEDIUM;
+  private detectionRange: number = 40;
+  private attackRange: number = 25;
+  private retreatHealth: number = 30;
+  private minDistance: number = 15;
+  private aimAccuracy: number = 0.2; // Lower is more accurate
   
   // Arena boundaries - adding these to prevent tanks from drifting out
   private readonly ARENA_BOUNDS = {
@@ -40,6 +44,53 @@ export class AIController {
     
     // Randomize initial shoot timer to prevent all tanks from shooting at once
     this.shootTimer = Math.random() * this.shootCooldown;
+  }
+  
+  public setDifficulty(difficulty: DifficultyLevel): void {
+    this.difficulty = difficulty;
+    
+    // Adjust AI parameters based on difficulty
+    switch (difficulty) {
+      case DifficultyLevel.EASY:
+        this.detectionRange = 30;
+        this.attackRange = 20;
+        this.retreatHealth = 40;
+        this.minDistance = 18;
+        this.shootCooldown = 3;
+        this.shootProbability = 0.5;
+        this.aimAccuracy = 0.4; // Less accurate
+        break;
+        
+      case DifficultyLevel.MEDIUM:
+        this.detectionRange = 40;
+        this.attackRange = 25;
+        this.retreatHealth = 30;
+        this.minDistance = 15;
+        this.shootCooldown = 2;
+        this.shootProbability = 0.7;
+        this.aimAccuracy = 0.2; // Default accuracy
+        break;
+        
+      case DifficultyLevel.HARD:
+        this.detectionRange = 50;
+        this.attackRange = 30;
+        this.retreatHealth = 25;
+        this.minDistance = 12;
+        this.shootCooldown = 1.5;
+        this.shootProbability = 0.8;
+        this.aimAccuracy = 0.1; // More accurate
+        break;
+        
+      case DifficultyLevel.INSANE:
+        this.detectionRange = 60;
+        this.attackRange = 40;
+        this.retreatHealth = 20;
+        this.minDistance = 10;
+        this.shootCooldown = 1;
+        this.shootProbability = 0.9;
+        this.aimAccuracy = 0.05; // Very accurate
+        break;
+    }
   }
   
   public update(deltaTime: number): void {
@@ -77,7 +128,7 @@ export class AIController {
   
   private updateState(distanceToPlayer: number): void {
     // Check if we need to retreat based on health
-    if (this.tank.getHealth() < this.RETREAT_HEALTH && this.state !== 'retreat') {
+    if (this.tank.getHealth() < this.retreatHealth && this.state !== 'retreat') {
       this.changeState('retreat');
       return;
     }
@@ -85,27 +136,27 @@ export class AIController {
     // State transitions based on distance to player
     switch (this.state) {
       case 'idle':
-        if (distanceToPlayer < this.DETECTION_RANGE) {
+        if (distanceToPlayer < this.detectionRange) {
           this.changeState('chase');
         }
         break;
       case 'chase':
-        if (distanceToPlayer < this.ATTACK_RANGE) {
+        if (distanceToPlayer < this.attackRange) {
           this.changeState('attack');
-        } else if (distanceToPlayer > this.DETECTION_RANGE) {
+        } else if (distanceToPlayer > this.detectionRange) {
           this.changeState('idle');
         }
         break;
       case 'attack':
-        if (distanceToPlayer > this.ATTACK_RANGE) {
+        if (distanceToPlayer > this.attackRange) {
           this.changeState('chase');
         }
         break;
       case 'retreat':
-        if (this.tank.getHealth() > this.RETREAT_HEALTH * 1.5 && this.stateTimer <= 0) {
-          if (distanceToPlayer < this.ATTACK_RANGE) {
+        if (this.tank.getHealth() > this.retreatHealth * 1.5 && this.stateTimer <= 0) {
+          if (distanceToPlayer < this.attackRange) {
             this.changeState('attack');
-          } else if (distanceToPlayer < this.DETECTION_RANGE) {
+          } else if (distanceToPlayer < this.detectionRange) {
             this.changeState('chase');
           } else {
             this.changeState('idle');
@@ -128,13 +179,13 @@ export class AIController {
       case 'chase':
         this.stateTimer = 0.5;
         this.shootingEnabled = true; // Can shoot while chasing, but less likely
-        this.shootProbability = 0.3;
+        this.shootProbability = this.difficulty === DifficultyLevel.INSANE ? 0.5 : 0.3;
         break;
       case 'attack':
         this.stateTimer = 0.5;
         this.shootingEnabled = true; // Most likely to shoot in attack state
-        this.shootProbability = 0.7;
-        this.shootCooldown = 1.5; // Shoot more frequently in attack mode
+        this.shootProbability = this.difficulty === DifficultyLevel.EASY ? 0.6 : 0.7;
+        this.shootCooldown = this.difficulty === DifficultyLevel.INSANE ? 1 : 1.5; // Shoot more frequently in attack mode
         break;
       case 'retreat':
         this.stateTimer = 5 + Math.random() * 5;
@@ -160,7 +211,7 @@ export class AIController {
     this.targetPosition.copy(this.playerTank.getPosition());
     
     // Keep some distance
-    if (this.getDistanceToPlayer() < this.MIN_DISTANCE) {
+    if (this.getDistanceToPlayer() < this.minDistance) {
       this.moveAwayFromTarget(deltaTime);
     } else {
       this.moveTowardsTarget(deltaTime);
@@ -173,9 +224,9 @@ export class AIController {
     
     // Keep optimal attack distance
     const distanceToPlayer = this.getDistanceToPlayer();
-    if (distanceToPlayer < this.MIN_DISTANCE) {
+    if (distanceToPlayer < this.minDistance) {
       this.moveAwayFromTarget(deltaTime);
-    } else if (distanceToPlayer > this.ATTACK_RANGE * 0.8) {
+    } else if (distanceToPlayer > this.attackRange * 0.8) {
       this.moveTowardsTarget(deltaTime);
     } else {
       // We're at a good distance, just aim at the player
@@ -199,9 +250,9 @@ export class AIController {
       let shootChance = this.shootProbability;
       
       // Adjust probability based on distance
-      if (distanceToPlayer < this.ATTACK_RANGE * 0.5) {
+      if (distanceToPlayer < this.attackRange * 0.5) {
         shootChance += 0.2; // More likely to shoot when very close
-      } else if (distanceToPlayer > this.ATTACK_RANGE) {
+      } else if (distanceToPlayer > this.attackRange) {
         shootChance -= 0.2; // Less likely to shoot when far away
       }
       
@@ -210,6 +261,13 @@ export class AIController {
         shootChance += 0.3; // Much more likely to shoot when aimed at player
       } else {
         shootChance -= 0.3; // Much less likely to shoot when not aimed
+      }
+      
+      // Difficulty adjustment
+      if (this.difficulty === DifficultyLevel.HARD) {
+        shootChance += 0.1;
+      } else if (this.difficulty === DifficultyLevel.INSANE) {
+        shootChance += 0.2;
       }
       
       // Clamp probability between 0.1 and 0.9
@@ -387,7 +445,8 @@ export class AIController {
     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
     
     // Return true if we're aimed at the target
-    return Math.abs(angleDiff) < 0.2;
+    // Use the aim accuracy parameter which varies by difficulty
+    return Math.abs(angleDiff) < this.aimAccuracy;
   }
   
   private getDistanceToPlayer(): number {
