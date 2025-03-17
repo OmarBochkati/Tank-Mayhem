@@ -4,6 +4,8 @@ export class Arena {
   private scene: THREE.Scene;
   private width: number;
   private depth: number;
+  private floor: THREE.Mesh;
+  private walls: THREE.Mesh[] = [];
   
   constructor(scene: THREE.Scene, width: number, depth: number) {
     this.scene = scene;
@@ -12,22 +14,28 @@ export class Arena {
   }
   
   public initialize(): void {
-    // Create ground
-    const groundGeometry = new THREE.PlaneGeometry(this.width, this.depth);
-    const groundMaterial = new THREE.MeshPhongMaterial({ 
-      color: 0x8B4513,
-      side: THREE.DoubleSide
+    // Create floor
+    const floorGeometry = new THREE.PlaneGeometry(this.width, this.depth);
+    const floorMaterial = new THREE.MeshPhongMaterial({ 
+      color: 0x555555,
+      side: THREE.DoubleSide,
+      shininess: 10
     });
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = Math.PI / 2;
-    ground.receiveShadow = true;
-    this.scene.add(ground);
+    this.floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    this.floor.rotation.x = Math.PI / 2;
+    this.floor.receiveShadow = true;
+    this.scene.add(this.floor);
     
-    // Create arena walls
+    // Create grid lines on the floor for better depth perception
+    const gridHelper = new THREE.GridHelper(this.width, 20, 0x000000, 0x333333);
+    gridHelper.position.y = 0.01; // Slightly above floor to avoid z-fighting
+    this.scene.add(gridHelper);
+    
+    // Create walls
     this.createWalls();
     
-    // Add some decorative elements - reduced quantity
-    this.addDecorations();
+    // Add arena corners for better visibility
+    this.createCornerMarkers();
   }
   
   private createWalls(): void {
@@ -36,23 +44,31 @@ export class Arena {
     const halfWidth = this.width / 2;
     const halfDepth = this.depth / 2;
     
-    const wallMaterial = new THREE.MeshPhongMaterial({ color: 0x808080 });
+    // Create wall material with emissive property for better visibility
+    const wallMaterial = new THREE.MeshPhongMaterial({ 
+      color: 0x3498db,
+      emissive: 0x1a5276,
+      emissiveIntensity: 0.3,
+      shininess: 30
+    });
     
     // North wall
-    const northWallGeometry = new THREE.BoxGeometry(this.width + wallThickness * 2, wallHeight, wallThickness);
+    const northWallGeometry = new THREE.BoxGeometry(this.width + wallThickness, wallHeight, wallThickness);
     const northWall = new THREE.Mesh(northWallGeometry, wallMaterial);
     northWall.position.set(0, wallHeight / 2, -halfDepth - wallThickness / 2);
     northWall.castShadow = true;
     northWall.receiveShadow = true;
     this.scene.add(northWall);
+    this.walls.push(northWall);
     
     // South wall
-    const southWallGeometry = new THREE.BoxGeometry(this.width + wallThickness * 2, wallHeight, wallThickness);
+    const southWallGeometry = new THREE.BoxGeometry(this.width + wallThickness, wallHeight, wallThickness);
     const southWall = new THREE.Mesh(southWallGeometry, wallMaterial);
     southWall.position.set(0, wallHeight / 2, halfDepth + wallThickness / 2);
     southWall.castShadow = true;
     southWall.receiveShadow = true;
     this.scene.add(southWall);
+    this.walls.push(southWall);
     
     // East wall
     const eastWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, this.depth);
@@ -61,6 +77,7 @@ export class Arena {
     eastWall.castShadow = true;
     eastWall.receiveShadow = true;
     this.scene.add(eastWall);
+    this.walls.push(eastWall);
     
     // West wall
     const westWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, this.depth);
@@ -69,65 +86,50 @@ export class Arena {
     westWall.castShadow = true;
     westWall.receiveShadow = true;
     this.scene.add(westWall);
+    this.walls.push(westWall);
   }
   
-  private addDecorations(): void {
-    // Add some rocks - reduced quantity and size
-    const rockGeometry = new THREE.DodecahedronGeometry(0.8, 0);
-    const rockMaterial = new THREE.MeshPhongMaterial({ color: 0x555555 });
+  private createCornerMarkers(): void {
+    const markerSize = 3;
+    const halfWidth = this.width / 2;
+    const halfDepth = this.depth / 2;
+    const markerHeight = 8; // Taller markers for better visibility
     
-    // Reduced from 20 to 10 rocks
-    for (let i = 0; i < 10; i++) {
-      const rock = new THREE.Mesh(rockGeometry, rockMaterial);
-      // Reduced scale range from 0.5-2.0 to 0.3-1.0
-      const scale = 0.3 + Math.random() * 0.7;
-      rock.scale.set(scale, scale, scale);
-      
-      const x = (Math.random() - 0.5) * (this.width - 5);
-      const z = (Math.random() - 0.5) * (this.depth - 5);
-      
-      rock.position.set(x, scale / 2, z);
-      rock.rotation.set(
-        Math.random() * Math.PI,
-        Math.random() * Math.PI,
-        Math.random() * Math.PI
-      );
-      
-      rock.castShadow = true;
-      rock.receiveShadow = true;
-      
-      this.scene.add(rock);
-    }
+    // Create a bright material for the corner markers
+    const markerMaterial = new THREE.MeshPhongMaterial({ 
+      color: 0xff0000,
+      emissive: 0xff0000,
+      emissiveIntensity: 0.5
+    });
     
-    // Add some trees - reduced quantity and size
-    const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 2, 8);
-    const trunkMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
-    const leavesGeometry = new THREE.ConeGeometry(1.5, 3, 8);
-    const leavesMaterial = new THREE.MeshPhongMaterial({ color: 0x228B22 });
+    // Create corner markers
+    const cornerPositions = [
+      { x: -halfWidth, z: -halfDepth }, // Northwest
+      { x: halfWidth, z: -halfDepth },  // Northeast
+      { x: halfWidth, z: halfDepth },   // Southeast
+      { x: -halfWidth, z: halfDepth }   // Southwest
+    ];
     
-    // Reduced from 10 to 5 trees
-    for (let i = 0; i < 5; i++) {
-      const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-      const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+    cornerPositions.forEach(pos => {
+      const markerGeometry = new THREE.CylinderGeometry(markerSize / 2, markerSize / 2, markerHeight, 8);
+      const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+      marker.position.set(pos.x, markerHeight / 2, pos.z);
+      marker.castShadow = true;
+      marker.receiveShadow = true;
+      this.scene.add(marker);
       
-      leaves.position.y = 2.5;
-      
-      const tree = new THREE.Group();
-      tree.add(trunk);
-      tree.add(leaves);
-      
-      // Position trees more toward the edges to leave more open space
-      const distanceFromCenter = 30 + Math.random() * 15;
-      const angle = Math.random() * Math.PI * 2;
-      const x = Math.cos(angle) * distanceFromCenter;
-      const z = Math.sin(angle) * distanceFromCenter;
-      
-      tree.position.set(x, 1, z);
-      
-      tree.castShadow = true;
-      tree.receiveShadow = true;
-      
-      this.scene.add(tree);
-    }
+      // Add a point light at each corner for better illumination
+      const cornerLight = new THREE.PointLight(0xff0000, 0.5, 20);
+      cornerLight.position.set(pos.x, markerHeight, pos.z);
+      this.scene.add(cornerLight);
+    });
+  }
+  
+  public getWidth(): number {
+    return this.width;
+  }
+  
+  public getDepth(): number {
+    return this.depth;
   }
 }

@@ -47,7 +47,7 @@ export class Game {
   // Game settings - these will be adjusted based on difficulty
   private respawnEnemyDelay: number = 5; // seconds
   private respawnEnemyTimer: number = 0;
-  private maxEnemyTanks: number = 6;
+  private maxEnemyTanks: number = 5;
   private powerUpSpawnInterval: number = 15; // seconds
   private powerUpTimer: number = 10; // Start first power-up after 10 seconds
   private enemyTankHealth: number = 100;
@@ -58,7 +58,8 @@ export class Game {
   
   constructor() {
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    // Create camera with wider field of view to see more of the arena
+    this.camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.1, 1000);
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.clock = new THREE.Clock();
     
@@ -75,22 +76,35 @@ export class Game {
     // Set up renderer
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
+    // Set clear color to dark gray to better see arena boundaries
+    this.renderer.setClearColor(0x222222);
     document.getElementById('game-container')?.appendChild(this.renderer.domElement);
     
-    // Set up camera
-    this.camera.position.set(0, 30, 30);
+    // Set up camera - position higher and further back to see more of the arena
+    this.camera.position.set(0, 60, 60);
     this.camera.lookAt(0, 0, 0);
     
     // Set up lighting
-    const ambientLight = new THREE.AmbientLight(0x404040);
+    const ambientLight = new THREE.AmbientLight(0x606060); // Brighter ambient light
     this.scene.add(ambientLight);
     
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(10, 20, 10);
+    directionalLight.position.set(10, 30, 10); // Higher light position
     directionalLight.castShadow = true;
     directionalLight.shadow.mapSize.width = 2048;
     directionalLight.shadow.mapSize.height = 2048;
+    // Increase shadow camera frustum to cover more area
+    directionalLight.shadow.camera.left = -60;
+    directionalLight.shadow.camera.right = 60;
+    directionalLight.shadow.camera.top = 60;
+    directionalLight.shadow.camera.bottom = -60;
+    directionalLight.shadow.camera.far = 130;
     this.scene.add(directionalLight);
+    
+    // Add a secondary light to better illuminate the bottom of the arena
+    const secondaryLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    secondaryLight.position.set(-10, 20, -30);
+    this.scene.add(secondaryLight);
     
     // Initialize arena
     this.arena.initialize();
@@ -269,6 +283,16 @@ export class Game {
     for (let i = 0; i < count; i++) {
       this.spawnEnemyTank();
     }
+    
+    // Update each AI controller with references to all other tanks
+    this.updateAITankReferences();
+  }
+  
+  private updateAITankReferences(): void {
+    // Provide each AI controller with references to all tanks for tactical spacing
+    this.aiControllers.forEach(controller => {
+      controller.setOtherTanks([...this.enemyTanks, this.playerTank]);
+    });
   }
   
   private spawnEnemyTank(): void {
@@ -278,8 +302,12 @@ export class Game {
     let attempts = 0;
     
     while (!validPosition && attempts < 20) {
-      x = (Math.random() - 0.5) * 80;
-      z = (Math.random() - 0.5) * 80;
+      // Prioritize central area for spawning
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 15 + Math.random() * 20; // Keep away from center but not too far
+      
+      x = Math.cos(angle) * distance;
+      z = Math.sin(angle) * distance;
       
       // Check distance from player
       const distToPlayer = Math.sqrt(
@@ -288,7 +316,7 @@ export class Game {
       );
       
       // Ensure tank is at least 20 units away from player
-      if (distToPlayer > 10) {
+      if (distToPlayer > 15) {
         validPosition = true;
         
         // Check distance from other tanks
@@ -298,9 +326,39 @@ export class Game {
             Math.pow(z - tank.getPosition().z, 2)
           );
           
-          if (distToTank < 10) {
+          if (distToTank < 12) { // Increased minimum spacing between tanks
             validPosition = false;
             break;
+          }
+        }
+        
+        // Check distance from obstacles
+        if (validPosition) {
+          for (const obstacle of this.obstacles) {
+            const obstaclePos = obstacle.getPosition();
+            const distToObstacle = Math.sqrt(
+              Math.pow(x - obstaclePos.x, 2) +
+              Math.pow(z - obstaclePos.z, 2)
+            );
+            
+            if (distToObstacle < 8 + obstacle.getRadius()) {
+              validPosition = false;
+              break;
+            }
+          }
+        }
+        
+        // Check distance from walls
+        if (validPosition) {
+          const distToWall = Math.min(
+            Math.abs(x - this.arenaBounds.minX),
+            Math.abs(x - this.arenaBounds.maxX),
+            Math.abs(z - this.arenaBounds.minZ),
+            Math.abs(z - this.arenaBounds.maxZ)
+          );
+          
+          if (distToWall < 20) { // Increased from 15 to 20 to keep further from walls
+            validPosition = false;
           }
         }
       }
@@ -310,8 +368,11 @@ export class Game {
     
     // If we couldn't find a valid position, use a fallback
     if (!validPosition) {
-      x = (Math.random() - 0.5) * 80;
-      z = (Math.random() - 0.5) * 80;
+      // Use a more central position as fallback
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 10 + Math.random() * 15; // Smaller distance to stay more central
+      x = Math.cos(angle) * distance;
+      z = Math.sin(angle) * distance;
     }
     
     const tank = new Tank(this.scene, x, 0, z);
@@ -465,7 +526,6 @@ export class Game {
       this.uiManager.updateHealth(this.playerTank.getHealth());
       this.uiManager.updateSpeed(this.playerTank.getSpeed());
       this.uiManager.updateDamage(this.playerTank.getDamage());
-      this.uiManager.updateHealth(this.playerTank.getHealth());
       this.uiManager.updateAmmo(this.playerTank.getCurrentAmmo(), this.playerTank.getMaxAmmo());
       this.uiManager.updateScore(this.gameState.getScore());
       this.uiManager.updateTimer(this.gameState.getElapsedTime());
@@ -481,6 +541,8 @@ export class Game {
       this.respawnEnemyTimer -= deltaTime;
       if (this.respawnEnemyTimer <= 0) {
         this.spawnEnemyTank();
+        // Update AI tank references after spawning a new tank
+        this.updateAITankReferences();
         this.respawnEnemyTimer = this.respawnEnemyDelay;
       }
     }
@@ -623,6 +685,9 @@ export class Game {
       tank.destroy();
       this.enemyTanks.splice(index, 1);
       this.aiControllers.splice(index, 1);
+      
+      // Update AI tank references after removing a tank
+      this.updateAITankReferences();
     }
   }
   
@@ -677,8 +742,12 @@ export class Game {
   }
   
   public spawnPowerUp(): void {
-    const x = (Math.random() - 0.5) * 80;
-    const z = (Math.random() - 0.5) * 80;
+    // Spawn power-ups in more central locations to encourage movement
+    const angle = Math.random() * Math.PI * 2;
+    const distance = Math.random() * 25; // Reduced from 30 to keep power-ups even more central
+    
+    const x = Math.cos(angle) * distance;
+    const z = Math.sin(angle) * distance;
     
     const powerUp = new PowerUp(this.scene, x, 0, z);
     powerUp.initialize();

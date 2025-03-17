@@ -26,111 +26,113 @@ export class UIManager {
     const uiContainer = document.createElement('div');
     uiContainer.id = 'ui-container';
     uiContainer.style.position = 'absolute';
-    uiContainer.style.top = '5%';
-    uiContainer.style.left = '5%';
-    uiContainer.style.width = '80%';
-    uiContainer.style.height = '80%';
+    uiContainer.style.top = '0';
+    uiContainer.style.left = '0';
+    uiContainer.style.width = '100%';
+    uiContainer.style.height = '100%';
     uiContainer.style.pointerEvents = 'none';
     uiContainer.style.fontFamily = 'Arial, sans-serif';
+    uiContainer.style.zIndex = '10';
     document.body.appendChild(uiContainer);
 
-		// Create health bar	  
-		this.healthBar = document.createElement('div');
-		this.healthBar.id = 'health-bar';
-		this.healthBar.style.position = 'absolute';
-		this.healthBar.style.top = '10px';
-		this.healthBar.style.left = '20px';
-		this.healthBar.style.width = '200px';
-		this.healthBar.style.height = '20px';
-		this.healthBar.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-		this.healthBar.style.border = '2px solid white';
-		this.healthBar.style.borderRadius = '10px';
-		this.healthBar.style.overflow = 'hidden';
-		document.body.appendChild(this.healthBar);
+    // Create health bar	  
+    this.healthBar = document.createElement('div');
+    this.healthBar.id = 'health-bar';
+    this.healthBar.style.position = 'absolute';
+    this.healthBar.style.top = '20px';
+    this.healthBar.style.left = '20px';
+    this.healthBar.style.width = '200px';
+    this.healthBar.style.height = '20px';
+    this.healthBar.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    this.healthBar.style.border = '2px solid white';
+    this.healthBar.style.borderRadius = '10px';
+    this.healthBar.style.overflow = 'hidden';
+    this.healthBar.style.zIndex = '20';
+    uiContainer.appendChild(this.healthBar);
 
-		this.healthFill = document.createElement('div');
-		this.healthFill.id = 'health-fill';
-		this.healthFill.style.width = '100%';
-		this.healthFill.style.height = '100%';
-		this.healthFill.style.backgroundColor = '#2ecc71';
-		this.healthFill.style.transition = 'width 0.3s, background-color 0.3s';
-		this.healthBar.appendChild(this.healthFill);
+    this.healthFill = document.createElement('div');
+    this.healthFill.id = 'health-fill';
+    this.healthFill.style.width = '100%';
+    this.healthFill.style.height = '100%';
+    this.healthFill.style.backgroundColor = '#2ecc71';
+    this.healthFill.style.transition = 'width 0.3s, background-color 0.3s';
+    this.healthBar.appendChild(this.healthFill);
     
     // Create health display
     this.healthElement = document.createElement('div');
     this.healthElement.id = 'health-display';
     this.healthElement.style.position = 'absolute';
-    this.healthElement.style.top = '35px';
+    this.healthElement.style.top = '45px';
     this.healthElement.style.left = '20px';
     this.healthElement.style.color = '#fff';
-    this.healthElement.style.fontSize = '18px';
-    this.healthElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+    this.healthElement.style.fontSize = '16px';
+    this.healthElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.8)';
     uiContainer.appendChild(this.healthElement);
     
     // Create ammo display
     this.ammoElement = document.createElement('div');
     this.ammoElement.id = 'ammo-display';
     this.ammoElement.style.position = 'absolute';
-    this.ammoElement.style.top = '125px';
+    this.ammoElement.style.top = '70px';
     this.ammoElement.style.left = '20px';
     this.ammoElement.style.color = '#fff';
-    this.ammoElement.style.fontSize = '18px';
-    this.ammoElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+    this.ammoElement.style.fontSize = '16px';
+    this.ammoElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.8)';
     uiContainer.appendChild(this.ammoElement);
     
     // Create score display
     this.scoreElement = document.createElement('div');
     this.scoreElement.id = 'score-display';
     this.scoreElement.style.position = 'absolute';
-    this.scoreElement.style.top = '145px';
+    this.scoreElement.style.top = '95px';
     this.scoreElement.style.left = '20px';
     this.scoreElement.style.color = '#fff';
-    this.scoreElement.style.fontSize = '18px';
-    this.scoreElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+    this.scoreElement.style.fontSize = '16px';
+    this.scoreElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.8)';
     uiContainer.appendChild(this.scoreElement);
 
-		// Create damage display
+    // Create damage display
     this.damageElement = document.createElement('div');
     this.damageElement.id = 'damage-display';
     this.damageElement.style.position = 'absolute';
-    this.damageElement.style.top = '165px';
+    this.damageElement.style.top = '120px';
     this.damageElement.style.left = '20px';
     this.damageElement.style.color = '#fff';
-    this.damageElement.style.fontSize = '18px';
-    this.damageElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+    this.damageElement.style.fontSize = '16px';
+    this.damageElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.8)';
     uiContainer.appendChild(this.damageElement);
 
-		// Create speed display
+    // Create speed display
     this.speedElement = document.createElement('div');
     this.speedElement.id = 'speed-display';
     this.speedElement.style.position = 'absolute';
-    this.speedElement.style.top = '185px';
+    this.speedElement.style.top = '145px';
     this.speedElement.style.left = '20px';
     this.speedElement.style.color = '#fff';
-    this.speedElement.style.fontSize = '18px';
-    this.speedElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+    this.speedElement.style.fontSize = '16px';
+    this.speedElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.8)';
     uiContainer.appendChild(this.speedElement);
     
     // Create timer display
     this.timerElement = document.createElement('div');
     this.timerElement.id = 'timer-display';
     this.timerElement.style.position = 'absolute';
-    this.timerElement.style.top = '30px';
+    this.timerElement.style.top = '20px';
     this.timerElement.style.right = '20px';
     this.timerElement.style.color = '#fff';
-    this.timerElement.style.fontSize = '18px';
-    this.timerElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+    this.timerElement.style.fontSize = '16px';
+    this.timerElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.8)';
     uiContainer.appendChild(this.timerElement);
     
     // Create difficulty display
     this.difficultyElement = document.createElement('div');
     this.difficultyElement.id = 'difficulty-display';
     this.difficultyElement.style.position = 'absolute';
-    this.difficultyElement.style.top = '60px';
+    this.difficultyElement.style.top = '45px';
     this.difficultyElement.style.right = '20px';
     this.difficultyElement.style.color = '#fff';
-    this.difficultyElement.style.fontSize = '18px';
-    this.difficultyElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+    this.difficultyElement.style.fontSize = '16px';
+    this.difficultyElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.8)';
     this.difficultyElement.textContent = 'Difficulty: Medium';
     uiContainer.appendChild(this.difficultyElement);
     
@@ -144,9 +146,12 @@ export class UIManager {
     this.messageElement.style.color = '#fff';
     this.messageElement.style.fontSize = '24px';
     this.messageElement.style.textAlign = 'center';
-    this.messageElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.5)';
+    this.messageElement.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.8)';
     this.messageElement.style.opacity = '0';
     this.messageElement.style.transition = 'opacity 0.3s ease-in-out';
+    this.messageElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    this.messageElement.style.padding = '10px 20px';
+    this.messageElement.style.borderRadius = '5px';
     uiContainer.appendChild(this.messageElement);
     
     // Create controls legend
@@ -158,10 +163,10 @@ export class UIManager {
     this.controlsElement.style.color = '#fff';
     this.controlsElement.style.fontSize = '14px';
     this.controlsElement.style.textAlign = 'left';
-    this.controlsElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    this.controlsElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
     this.controlsElement.style.padding = '10px';
     this.controlsElement.style.borderRadius = '5px';
-    this.controlsElement.style.textShadow = '1px 1px 2px rgba(0, 0, 0, 0.5)';
+    this.controlsElement.style.textShadow = '1px 1px 2px rgba(0, 0, 0, 0.8)';
     this.controlsElement.innerHTML = `
       <div style="font-weight: bold; margin-bottom: 5px;">Controls:</div>
       <div>W - Move Forward</div>
@@ -187,27 +192,27 @@ export class UIManager {
     }
   }	
 
-	public updateDamage(speed: number): void {
-		if (this.damageElement) {
-			this.damageElement.textContent = `Damage: ${Math.max(0, Math.floor(speed))}`;
-		}
+  public updateDamage(damage: number): void {
+    if (this.damageElement) {
+      this.damageElement.textContent = `Damage: ${Math.max(0, Math.floor(damage))}`;
+    }
   }	
   
   public updateHealth(health: number): void {
     if (this.healthElement) {
       this.healthElement.textContent = `Health: ${Math.max(0, Math.floor(health))}`;
-				this.healthFill.style.width = `${Math.max(0, Math.floor(health))}%`;
+      this.healthFill.style.width = `${Math.max(0, Math.floor(health))}%`;
       
       // Change color based on health
       if (health > 60) {
         this.healthElement.style.color = '#2ecc71'; // Green
-				this.healthFill.style.backgroundColor = '#2ecc71';
+        this.healthFill.style.backgroundColor = '#2ecc71';
       } else if (health > 30) {
         this.healthElement.style.color = '#f39c12'; // Orange
-				this.healthFill.style.backgroundColor = '#f39c12';
+        this.healthFill.style.backgroundColor = '#f39c12';
       } else {
         this.healthElement.style.color = '#e74c3c'; // Red
-				this.healthFill.style.backgroundColor = '#e74c3c';
+        this.healthFill.style.backgroundColor = '#e74c3c';
       }
     }
   }
@@ -304,6 +309,9 @@ export class UIManager {
       case 2:
         message = 'Speed Boost!';
         break;
+      case 3:
+        message = 'Damage Boost!';
+        break;
       default:
         message = `${type} Power-Up Collected!`;
     }
@@ -321,6 +329,7 @@ export class UIManager {
     popup.style.fontWeight = 'bold';
     popup.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.7)';
     popup.style.pointerEvents = 'none';
+    popup.style.zIndex = '30';
     
     // Convert 3D position to screen coordinates
     // This is a simplified version - in a real game, you'd use a proper 3D to 2D projection
@@ -365,7 +374,7 @@ export class UIManager {
     gameOverContainer.style.left = '0';
     gameOverContainer.style.width = '100%';
     gameOverContainer.style.height = '100%';
-    gameOverContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    gameOverContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
     gameOverContainer.style.display = 'flex';
     gameOverContainer.style.flexDirection = 'column';
     gameOverContainer.style.justifyContent = 'center';
