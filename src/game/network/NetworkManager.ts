@@ -69,6 +69,7 @@ export class NetworkManager {
   private game: Game;
   private playerId: string = '';
   private playerName: string = '';
+  private playerColor: number = 0;
   private serverUrl: string = '';
   private isConnected: boolean = false;
   private isHost: boolean = false;
@@ -118,10 +119,12 @@ export class NetworkManager {
    * Initialize the network manager and connect to the server
    * @param serverUrl The URL of the game server
    * @param playerName The player's display name
+   * @param playerColor The player's tank color
    */
-  public initialize(serverUrl: string, playerName: string): void {
+  public initialize(serverUrl: string, playerName: string, playerColor: number = 0): void {
     this.serverUrl = serverUrl;
     this.playerName = playerName;
+    this.playerColor = playerColor;
     
     // Connect to the server
     this.connect();
@@ -136,7 +139,8 @@ export class NetworkManager {
       this.socket = io(this.serverUrl, {
         query: {
           playerId: this.playerId,
-          playerName: this.playerName
+          playerName: this.playerName,
+          playerColor: this.playerColor
         },
         reconnection: true,
         reconnectionAttempts: 5,
@@ -283,7 +287,6 @@ export class NetworkManager {
       // Handle power-up spawn
       this.game.spawnRemotePowerUp(data.id, data.type, data.position);
     });
-    
     this.socket.on(MessageType.COLLECT_POWER_UP, (data: { id: string, playerId: string }) => {
       // Handle power-up collection
       this.game.collectRemotePowerUp(data.id, data.playerId);
@@ -370,7 +373,11 @@ export class NetworkManager {
       return;
     }
     
-    this.socket.emit('create_room', { name: roomName, maxPlayers }, (response: { success: boolean, roomId?: string, error?: string }) => {
+    this.socket.emit('create_room', { 
+      name: roomName, 
+      maxPlayers,
+      playerColor: this.playerColor
+    }, (response: { success: boolean, roomId?: string, error?: string }) => {
       if (response && response.success && response.roomId) {
         this.roomId = response.roomId;
         this.isHost = true;
@@ -411,7 +418,7 @@ export class NetworkManager {
           rotation: 0,
           health: 100,
           score: 0,
-          color: 0x3498db
+          color: this.playerColor
         });
       }
     }, 500);
@@ -436,7 +443,10 @@ export class NetworkManager {
       return;
     }
     
-    this.socket.emit('join_room', { roomId }, (response: { success: boolean, roomName?: string, error?: string }) => {
+    this.socket.emit('join_room', { 
+      roomId,
+      playerColor: this.playerColor
+    }, (response: { success: boolean, roomName?: string, error?: string }) => {
       if (response && response.success) {
         this.roomId = roomId;
         console.log(`Joined room: ${roomId}`);
@@ -479,7 +489,7 @@ export class NetworkManager {
           rotation: 0,
           health: 100,
           score: 0,
-          color: 0x3498db
+          color: this.playerColor
         });
       }
       
@@ -584,7 +594,7 @@ export class NetworkManager {
             rotation: 0,
             health: 100,
             score: 0,
-            color: 0x3498db
+            color: this.playerColor
           }],
           powerUps: [],
           projectiles: [],
@@ -828,6 +838,20 @@ export class NetworkManager {
    */
   public getPlayerId(): string {
     return this.playerId;
+  }
+  
+  /**
+   * Get the player's color
+   */
+  public getPlayerColor(): number {
+    return this.playerColor;
+  }
+  
+  /**
+   * Set the player's color
+   */
+  public setPlayerColor(color: number): void {
+    this.playerColor = color;
   }
   
   /**

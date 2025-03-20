@@ -2,6 +2,7 @@ import { Game } from '../Game';
 import { NetworkManager, PlayerData, RoomInfo } from './NetworkManager';
 import { LobbyUI } from './LobbyUI';
 import { GameMode, DifficultyLevel } from '../core/GameState';
+import { ColorManager } from '../utils/ColorManager';
 
 /**
  * MultiplayerManager handles the integration between the game and networking,
@@ -11,6 +12,7 @@ export class MultiplayerManager {
   private game: Game;
   private networkManager: NetworkManager;
   private lobbyUI: LobbyUI;
+  private colorManager: ColorManager;
   
   private remotePlayers: Map<string, PlayerData> = new Map();
   private isInMultiplayerMode: boolean = false;
@@ -20,6 +22,7 @@ export class MultiplayerManager {
     this.game = game;
     this.networkManager = new NetworkManager(game);
     this.lobbyUI = new LobbyUI();
+    this.colorManager = new ColorManager();
     
     // Set up event listeners for the lobby UI
     this.setupLobbyUIEventListeners();
@@ -97,6 +100,12 @@ export class MultiplayerManager {
     // Player joined callback
     this.networkManager.onPlayerJoined((player: PlayerData) => {
       console.log(`Player joined callback: ${player.name}`);
+      
+      // Assign a color to the player if they don't have one
+      if (!player.color || player.color === 0) {
+        player.color = this.colorManager.getPlayerColor(player.id);
+      }
+      
       this.remotePlayers.set(player.id, player);
       this.lobbyUI.addPlayer(player);
       
@@ -115,10 +124,20 @@ export class MultiplayerManager {
       if (this.isInMultiplayerMode && !this.isInLobby) {
         this.game.removeRemotePlayer(playerId);
       }
+      
+      // Free up the player's color
+      this.colorManager.removePlayer(playerId);
     });
     
     // Game state update callback
     this.networkManager.onGameStateUpdate((state) => {
+      // Ensure all players have colors
+      state.players.forEach(player => {
+        if (!player.color || player.color === 0) {
+          player.color = this.colorManager.getPlayerColor(player.id);
+        }
+      });
+      
       // Update game state with remote data
       this.game.updateFromNetworkState(state);
       
@@ -149,7 +168,15 @@ export class MultiplayerManager {
    * Connect to the game server
    */
   public connectToServer(serverUrl: string, playerName: string): void {
-    this.networkManager.initialize(serverUrl, playerName);
+    // Reset color manager when connecting to a new server
+    this.colorManager.reset();
+    
+    // Assign a color for the local player
+    const localPlayerId = this.networkManager.getPlayerId();
+    const playerColor = this.colorManager.getPlayerColor(localPlayerId);
+    
+    // Initialize network manager with player color
+    this.networkManager.initialize(serverUrl, playerName, playerColor);
     this.lobbyUI.showConnecting();
     
     // Check connection status after a delay
@@ -245,8 +272,18 @@ export class MultiplayerManager {
     this.game.setMultiplayerMode(true);
     this.game.setGameMode(GameMode.MULTIPLAYER);
     
+    // Set the player's tank color
+    const localPlayerId = this.networkManager.getPlayerId();
+    const playerColor = this.colorManager.getPlayerColor(localPlayerId);
+    this.game.getPlayerTank().setColor(playerColor);
+    
     // Add all remote players to the game
     this.remotePlayers.forEach((player, playerId) => {
+      // Ensure the player has a color
+      if (!player.color || player.color === 0) {
+        player.color = this.colorManager.getPlayerColor(playerId);
+      }
+      
       this.game.addRemotePlayer(playerId, player.name, player.position, player.rotation, player.color);
     });
     
@@ -328,6 +365,13 @@ export class MultiplayerManager {
    */
   public getNetworkManager(): NetworkManager {
     return this.networkManager;
+  }
+  
+  /**
+   * Get the color manager
+   */
+  public getColorManager(): ColorManager {
+    return this.colorManager;
   }
   
   /**

@@ -12,6 +12,7 @@ import { UIManager } from './ui/UIManager';
 import { ExplosionEffect } from './effects/ExplosionEffect';
 import { MultiplayerManager } from './network/MultiplayerManager';
 import { NetworkGameState } from './network/NetworkManager';
+import { ColorManager } from './utils/ColorManager';
 
 export class Game {
   private scene: THREE.Scene;
@@ -216,7 +217,7 @@ export class Game {
     // Recreate player tank if it was destroyed
     if (!this.playerTank || !this.scene.getObjectById(this.playerTank.getMeshId())) {
       this.playerTank = new Tank(this.scene, 0, 0, 0);
-      this.playerTank.initialize();
+			this.playerTank.initialize();
     }
     
     // Start the game again
@@ -437,7 +438,7 @@ export class Game {
     
     const tank = new Tank(this.scene, x, 0, z);
     tank.initialize();
-    tank.setColor(0xff0000);
+    tank.setColor(ColorManager.getEnemyColor()); // Use the enemy color from ColorManager
     
     // Apply difficulty-based settings
     tank.setMaxHealth(this.enemyTankHealth);
@@ -633,10 +634,10 @@ export class Game {
     this.powerUpTimer -= deltaTime;
     if (this.powerUpTimer <= 0) {
       this.spawnPowerUp();
-      thispowerUpTimer = this.powerUpSpawnInterval;
+      this.powerUpTimer = this.powerUpSpawnInterval;
     }
   }
-  
+		   
   private updateProjectiles(deltaTime: number): void {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const projectile = this.projectiles[i];
@@ -877,7 +878,14 @@ export class Game {
     const tank = new Tank(this.scene, position.x, position.y, position.z);
     tank.initialize();
     tank.setRotation(rotation);
-    tank.setColor(color);
+    
+    // Set the player's color - use the provided color or get one from the color manager
+    if (color && color !== 0) {
+      tank.setColor(color);
+    } else {
+      const playerColor = this.multiplayerManager.getColorManager().getPlayerColor(id);
+      tank.setColor(playerColor);
+    }
     
     // Add to remote players map
     this.remotePlayers.set(id, tank);
@@ -896,6 +904,9 @@ export class Game {
       
       // Remove from remote players map
       this.remotePlayers.delete(id);
+      
+      // Free up the player's color
+      this.multiplayerManager.getColorManager().removePlayer(id);
     }
   }
   
@@ -998,6 +1009,11 @@ export class Game {
         tank.setPosition(player.position.x, player.position.y, player.position.z);
         tank.setRotation(player.rotation);
         tank.setHealth(player.health);
+        
+        // Update color if it has changed
+        if (player.color && player.color !== tank.getColor()) {
+          tank.setColor(player.color);
+        }
       } else {
         // Add new player
         this.addRemotePlayer(player.id, player.name, player.position, player.rotation, player.color);
