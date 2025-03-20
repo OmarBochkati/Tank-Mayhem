@@ -15,7 +15,7 @@ export class AIController {
   private obstacles: Obstacle[];
   private otherTanks: Tank[] = []; // Reference to other tanks for tactical spacing
   
-  private state: 'idle' | 'chase' | 'attack' | 'retreat' | 'reposition' = 'chase';
+  private state: 'idle' | 'chase' | 'attack' | 'retreat' | 'reposition' = 'attack';
   private stateTimer: number = 0;
   private targetPosition: THREE.Vector3 = new THREE.Vector3();
   
@@ -982,9 +982,9 @@ export class AIController {
       const position = this.tank.getPosition();
       const forward = this.tank.getForwardDirection();
       
-      // Calculate new position
-      let newX = position.x - forward.x * 5 * deltaTime;
-      let newZ = position.z - forward.z * 5 * deltaTime;
+      // Calculate new position - FIXED: Use positive direction for forward movement
+      let newX = position.x + forward.x * 5 * deltaTime;
+      let newZ = position.z + forward.z * 5 * deltaTime;
       
       // Ensure the new position is within arena bounds
       newX = Math.max(this.ARENA_BOUNDS.minX, Math.min(this.ARENA_BOUNDS.maxX, newX));
@@ -1028,9 +1028,9 @@ export class AIController {
       const position = this.tank.getPosition();
       const forward = this.tank.getForwardDirection();
       
-      // Calculate new position
-      let newX = position.x - forward.x * 5 * deltaTime;
-      let newZ = position.z - forward.z * 5 * deltaTime;
+      // Calculate new position - FIXED: Use positive direction for forward movement
+      let newX = position.x + forward.x * 5 * deltaTime;
+      let newZ = position.z + forward.z * 5 * deltaTime;
       
       // Ensure the new position is within arena bounds
       newX = Math.max(this.ARENA_BOUNDS.minX, Math.min(this.ARENA_BOUNDS.maxX, newX));

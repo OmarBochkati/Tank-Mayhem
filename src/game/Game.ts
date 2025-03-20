@@ -10,6 +10,8 @@ import { Obstacle } from './environment/Obstacle';
 import { PowerUp } from './entities/PowerUp';
 import { UIManager } from './ui/UIManager';
 import { ExplosionEffect } from './effects/ExplosionEffect';
+import { MultiplayerManager } from './network/MultiplayerManager';
+import { NetworkGameState } from './network/NetworkManager';
 
 export class Game {
   private scene: THREE.Scene;
@@ -20,6 +22,7 @@ export class Game {
   private arena: Arena;
   private playerTank: Tank;
   private enemyTanks: Tank[] = [];
+  private remotePlayers: Map<string, Tank> = new Map();
   private obstacles: Obstacle[] = [];
   private projectiles: Projectile[] = [];
   private powerUps: PowerUp[] = [];
@@ -29,6 +32,7 @@ export class Game {
   private physicsEngine: PhysicsEngine;
   private gameState: GameState;
   private uiManager: UIManager;
+  private multiplayerManager: MultiplayerManager;
   
   private aiControllers: AIController[] = [];
   
@@ -54,6 +58,9 @@ export class Game {
   private enemyTankSpeed: number = 10;
   private enemyTankDamage: number = 20;
   
+  // Multiplayer settings
+  private isMultiplayerMode: boolean = false;
+  
   public onGameOver: (score: number) => void = () => {};
   
   constructor() {
@@ -70,6 +77,9 @@ export class Game {
     
     this.arena = new Arena(this.scene, 100, 100);
     this.playerTank = new Tank(this.scene, 0, 0, 0);
+    
+    // Initialize multiplayer manager
+    this.multiplayerManager = new MultiplayerManager(this);
   }
   
   public initialize(): void {
@@ -122,12 +132,56 @@ export class Game {
     // Initialize input manager
     this.inputManager.initialize();
     
+    // Initialize multiplayer manager
+    this.multiplayerManager.initialize();
+    
+    // Add multiplayer button to UI
+    this.addMultiplayerButton();
+    
     // Start animation loop
     this.animate();
   }
   
+  private addMultiplayerButton(): void {
+    const button = document.createElement('button');
+    button.id = 'multiplayer-button';
+    button.textContent = 'Multiplayer';
+    button.style.position = 'absolute';
+    button.style.top = '20px';
+    button.style.right = '120px';
+    button.style.padding = '10px 20px';
+    button.style.backgroundColor = '#3498db';
+    button.style.color = '#fff';
+    button.style.border = 'none';
+    button.style.borderRadius = '5px';
+    button.style.cursor = 'pointer';
+    button.style.fontSize = '16px';
+    button.style.zIndex = '100';
+    
+    button.addEventListener('click', () => {
+      this.showMultiplayerLobby();
+    });
+    
+    document.body.appendChild(button);
+  }
+  
+  public showMultiplayerLobby(): void {
+    // Pause the game if it's running
+    if (this.gameState.isGameRunning()) {
+      this.gameState.pauseGame();
+    }
+    
+    // Show the multiplayer lobby
+    this.multiplayerManager.showLobby();
+  }
+  
   public start(): void {
-    this.gameState.setGameMode(GameMode.SINGLE_PLAYER);
+    if (this.isMultiplayerMode) {
+      this.gameState.setGameMode(GameMode.MULTIPLAYER);
+    } else {
+      this.gameState.setGameMode(GameMode.SINGLE_PLAYER);
+    }
+    
     this.gameState.startGame();
     
     // Apply difficulty settings
@@ -136,11 +190,13 @@ export class Game {
     // Reset player tank
     this.playerTank.reset();
     
-    // Create enemy tanks
-    this.createEnemyTanks(this.getInitialEnemyCount());
-    
-    // Create obstacles - adjusted based on difficulty
-    this.createObstacles(this.getObstacleCount());
+    if (!this.isMultiplayerMode) {
+      // Create enemy tanks (only in single player mode)
+      this.createEnemyTanks(this.getInitialEnemyCount());
+      
+      // Create obstacles - adjusted based on difficulty
+      this.createObstacles(this.getObstacleCount());
+    }
     
     // Start the game timer
     this.uiManager.startTimer();
@@ -173,6 +229,10 @@ export class Game {
     this.enemyTanks = [];
     
     this.aiControllers = [];
+    
+    // Clear remote players
+    this.remotePlayers.forEach(tank => tank.destroy());
+    this.remotePlayers.clear();
     
     this.obstacles.forEach(obstacle => obstacle.destroy());
     this.obstacles = [];
@@ -432,6 +492,9 @@ export class Game {
     
     const deltaTime = this.clock.getDelta();
     
+    // Update multiplayer manager
+    this.multiplayerManager.update(deltaTime);
+    
     if (this.gameState.isGameRunning()) {
       // Update timers
       this.updateTimers(deltaTime);
@@ -445,8 +508,12 @@ export class Game {
       // Check for collisions with arena boundaries
       this.enforceArenaBoundaries(this.playerTank);
       
+      // Get all tanks for collision detection
+      const allTanks = [...this.enemyTanks];
+      this.remotePlayers.forEach(tank => allTanks.push(tank));
+      
       // Check for collisions with obstacles and other tanks
-      if (this.checkTankCollisions(this.playerTank, [...this.enemyTanks], this.obstacles)) {
+      if (this.checkTankCollisions(this.playerTank, allTanks, this.obstacles)) {
         // If collision detected, revert to previous position
         this.playerTank.setPosition(prevPlayerPosition.x, prevPlayerPosition.y, prevPlayerPosition.z);
       }
@@ -454,55 +521,70 @@ export class Game {
       // Check for fire input
       if (this.inputManager.getFireInput()) {
         this.fireProjectile(this.playerTank);
+        
+        // In multiplayer mode, send fire event to other players
+        if (this.isMultiplayerMode) {
+          const position = this.playerTank.getPosition();
+          const direction = this.playerTank.getForwardDirection();
+          this.multiplayerManager.sendFireEvent(position, direction);
+        }
       }
       
-      // Update enemy tanks with collision detection
-      this.enemyTanks.forEach((tank, index) => {
-        // Check if tank is destroyed
-        if (tank.getHealth() <= 0) {
-          // Award points for destroying an enemy tank
-          this.gameState.addScore(this.POINTS_PER_ENEMY_TANK);
-          
-          // Update UI
-          this.uiManager.updateScore(this.gameState.getScore());
-          
-          // Show score popup
-          this.uiManager.showScorePopup(
-            `+${this.POINTS_PER_ENEMY_TANK}`, 
-            tank.getPosition()
-          );
-          
-          this.destroyEnemyTank(index);
-          return;
-        }
-        
-        const prevPosition = tank.getPosition().clone();
-        
-        // Pass camera to enemy tanks for health bar billboarding
-        tank.update(deltaTime, undefined, this.camera);
-        
-        // Check for arena boundaries
-        this.enforceArenaBoundaries(tank);
-        
-        // Check for collisions with obstacles and other tanks (including player)
-        const otherTanks = [this.playerTank, ...this.enemyTanks.filter(t => t !== tank)];
-        if (this.checkTankCollisions(tank, otherTanks, this.obstacles)) {
-          // If collision detected, revert to previous position
-          tank.setPosition(prevPosition.x, prevPosition.y, prevPosition.z);
-        }
-      });
-      
-      // Update AI controllers and handle AI shooting
-      this.aiControllers.forEach((controller, index) => {
-        if (index < this.enemyTanks.length) {
-          controller.update(deltaTime);
-          
-          // Check if AI should shoot
-          if (controller.tryShoot()) {
-            this.fireProjectile(this.enemyTanks[index]);
+      // Update enemy tanks with collision detection (single player mode)
+      if (!this.isMultiplayerMode) {
+        this.enemyTanks.forEach((tank, index) => {
+          // Check if tank is destroyed
+          if (tank.getHealth() <= 0) {
+            // Award points for destroying an enemy tank
+            this.gameState.addScore(this.POINTS_PER_ENEMY_TANK);
+            
+            // Update UI
+            this.uiManager.updateScore(this.gameState.getScore());
+            
+            // Show score popup
+            this.uiManager.showScorePopup(
+              `+${this.POINTS_PER_ENEMY_TANK}`, 
+              tank.getPosition()
+            );
+            
+            this.destroyEnemyTank(index);
+            return;
           }
-        }
-      });
+          
+          const prevPosition = tank.getPosition().clone();
+          
+          // Pass camera to enemy tanks for health bar billboarding
+          tank.update(deltaTime, undefined, this.camera);
+          
+          // Check for arena boundaries
+          this.enforceArenaBoundaries(tank);
+          
+          // Check for collisions with obstacles and other tanks (including player)
+          const otherTanks = [this.playerTank, ...this.enemyTanks.filter(t => t !== tank)];
+          if (this.checkTankCollisions(tank, otherTanks, this.obstacles)) {
+            // If collision detected, revert to previous position
+            tank.setPosition(prevPosition.x, prevPosition.y, prevPosition.z);
+          }
+        });
+        
+        // Update AI controllers and handle AI shooting
+        this.aiControllers.forEach((controller, index) => {
+          if (index < this.enemyTanks.length) {
+            controller.update(deltaTime);
+            
+            // Check if AI should shoot
+            if (controller.tryShoot()) {
+              this.fireProjectile(this.enemyTanks[index]);
+            }
+          }
+        });
+      } else {
+        // Update remote players (multiplayer mode)
+        this.remotePlayers.forEach(tank => {
+          // Pass camera for health bar billboarding
+          tank.update(deltaTime, undefined, this.camera);
+        });
+      }
       
       // Update projectiles
       this.updateProjectiles(deltaTime);
@@ -536,8 +618,8 @@ export class Game {
   }
   
   private updateTimers(deltaTime: number): void {
-    // Update enemy respawn timer
-    if (this.enemyTanks.length < this.maxEnemyTanks) {
+    // Update enemy respawn timer (single player mode only)
+    if (!this.isMultiplayerMode && this.enemyTanks.length < this.maxEnemyTanks) {
       this.respawnEnemyTimer -= deltaTime;
       if (this.respawnEnemyTimer <= 0) {
         this.spawnEnemyTank();
@@ -560,10 +642,14 @@ export class Game {
       const projectile = this.projectiles[i];
       projectile.update(deltaTime);
       
+      // Get all tanks for collision detection
+      const allTanks = [this.playerTank, ...this.enemyTanks];
+      this.remotePlayers.forEach(tank => allTanks.push(tank));
+      
       // Check for collisions
       const collisionResult = this.physicsEngine.checkProjectileCollisions(
         projectile, 
-        [this.playerTank, ...this.enemyTanks], 
+        allTanks, 
         this.obstacles
       );
       
@@ -590,6 +676,21 @@ export class Game {
               `+${hitPoints}`, 
               hitTank.getPosition()
             );
+          }
+          
+          // In multiplayer mode, send hit event to other players
+          if (this.isMultiplayerMode) {
+            // Find the remote player ID
+            let hitPlayerId = '';
+            this.remotePlayers.forEach((tank, id) => {
+              if (tank === hitTank) {
+                hitPlayerId = id;
+              }
+            });
+            
+            if (hitPlayerId && projectile.getSourceId() === this.playerTank.getId()) {
+              this.multiplayerManager.sendHitEvent(hitPlayerId, projectile.getDamage());
+            }
           }
         }
         
@@ -655,6 +756,11 @@ export class Game {
         // Show effect message
         this.uiManager.showPowerUpMessage(powerUp.getType());
         
+        // In multiplayer mode, send power-up collection event
+        if (this.isMultiplayerMode) {
+          this.multiplayerManager.sendPowerUpCollectedEvent(powerUp.getId());
+        }
+        
         // Remove power-up
         powerUp.destroy();
         this.powerUps.splice(i, 1);
@@ -669,8 +775,7 @@ export class Game {
       if (explosion.update(deltaTime)) {
         // Explosion is finished, remove it
         explosion.destroy();
-        this.explosions.splice(i, 1);
-      }
+        this.explosions.splice(i, 1);      }
     }
   }
   
@@ -695,9 +800,6 @@ export class Game {
     const explosion = new ExplosionEffect(this.scene, position, size);
     explosion.initialize();
     this.explosions.push(explosion);
-    
-    // Play explosion sound
-    // this.audioManager.playSound('explosion'); // Would be implemented in a real audio system
   }
   
   // Check if a tank collides with any obstacles or other tanks
@@ -753,5 +855,193 @@ export class Game {
     powerUp.initialize();
     
     this.powerUps.push(powerUp);
+  }
+  
+  // Multiplayer methods
+  public setMultiplayerMode(isMultiplayer: boolean): void {
+    this.isMultiplayerMode = isMultiplayer;
+    
+    // Update UI to show multiplayer status
+    if (isMultiplayer) {
+      this.uiManager.showMessage('Multiplayer Mode', 2000);
+    }
+  }
+  
+  public setGameMode(mode: GameMode): void {
+    this.gameState.setGameMode(mode);
+  }
+  
+  // Methods for handling remote player events
+  public addRemotePlayer(id: string, name: string, position: { x: number, y: number, z: number }, rotation: number, color: number): void {
+    // Create a new tank for the remote player
+    const tank = new Tank(this.scene, position.x, position.y, position.z);
+    tank.initialize();
+    tank.setRotation(rotation);
+    tank.setColor(color);
+    
+    // Add to remote players map
+    this.remotePlayers.set(id, tank);
+    
+    // Show message
+    this.uiManager.showMessage(`${name} joined the game`, 2000);
+  }
+  
+  public removeRemotePlayer(id: string): void {
+    // Get the remote player tank
+    const tank = this.remotePlayers.get(id);
+    
+    if (tank) {
+      // Destroy the tank
+      tank.destroy();
+      
+      // Remove from remote players map
+      this.remotePlayers.delete(id);
+    }
+  }
+  
+  public updateRemotePlayerPosition(id: string, position: { x: number, y: number, z: number }, rotation: number): void {
+    // Get the remote player tank
+    const tank = this.remotePlayers.get(id);
+    
+    if (tank) {
+      // Update position and rotation
+      tank.setPosition(position.x, position.y, position.z);
+      tank.setRotation(rotation);
+    }
+  }
+  
+  public handleRemotePlayerFire(id: string, position: { x: number, y: number, z: number }, direction: { x: number, y: number, z: number }): void {
+    // Get the remote player tank
+    const tank = this.remotePlayers.get(id);
+    
+    if (tank) {
+      // Create a projectile
+      this.fireProjectile(tank);
+    }
+  }
+  
+  public handleRemotePlayerHit(targetId: string, sourceId: string, damage: number, health: number): void {
+    // If the player was hit
+    if (targetId === this.multiplayerManager.getNetworkManager().getPlayerId()) {
+      this.playerTank.takeDamage(damage);
+    } else {
+      // If a remote player was hit
+      const tank = this.remotePlayers.get(targetId);
+      
+      if (tank) {
+        tank.takeDamage(damage);
+        tank.setHealth(health);
+      }
+    }
+  }
+  
+  public spawnRemotePowerUp(id: string, type: number, position: { x: number, y: number, z: number }): void {
+    // Create a new power-up
+    const powerUp = new PowerUp(this.scene, position.x, position.y, position.z, id);
+    powerUp.initialize();
+    powerUp.setType(type);
+    
+    // Add to power-ups array
+    this.powerUps.push(powerUp);
+  }
+  
+  public collectRemotePowerUp(id: string, playerId: string): void {
+    // Find the power-up
+    const powerUpIndex = this.powerUps.findIndex(pu => pu.getId() === id);
+    
+    if (powerUpIndex !== -1) {
+      const powerUp = this.powerUps[powerUpIndex];
+      
+      // If collected by a remote player
+      if (playerId !== this.multiplayerManager.getNetworkManager().getPlayerId()) {
+        const tank = this.remotePlayers.get(playerId);
+        
+        if (tank) {
+          // Apply effect to the remote player's tank
+          powerUp.applyEffect(tank);
+        }
+      }
+      
+      // Remove power-up
+      powerUp.destroy();
+      this.powerUps.splice(powerUpIndex, 1);
+    }
+  }
+  
+  public handleRemoteGameOver(winnerId: string, scores: { id: string, name: string, score: number }[]): void {
+    // End the game
+    this.gameState.endGame();
+    
+    // Show game over screen with scores
+    this.uiManager.showGameOver(this.gameState.getScore());
+    
+    // Show winner message
+    if (winnerId) {
+      const winnerScore = scores.find(s => s.id === winnerId);
+      if (winnerScore) {
+        this.uiManager.showMessage(`${winnerScore.name} won the game!`, 5000);
+      }
+    }
+  }
+  
+  public updateFromNetworkState(state: NetworkGameState): void {
+    // Update remote players
+    state.players.forEach(player => {
+      // Skip local player
+      if (player.id === this.multiplayerManager.getNetworkManager().getPlayerId()) return;
+      
+      // Check if player exists
+      const tank = this.remotePlayers.get(player.id);
+      
+      if (tank) {
+        // Update existing player
+        tank.setPosition(player.position.x, player.position.y, player.position.z);
+        tank.setRotation(player.rotation);
+        tank.setHealth(player.health);
+      } else {
+        // Add new player
+        this.addRemotePlayer(player.id, player.name, player.position, player.rotation, player.color);
+      }
+    });
+    
+    // Remove players that are no longer in the game
+    this.remotePlayers.forEach((tank, id) => {
+      if (!state.players.some(p => p.id === id)) {
+        this.removeRemotePlayer(id);
+      }
+    });
+    
+    // Update power-ups
+    // First, remove power-ups that are no longer in the game
+    this.powerUps = this.powerUps.filter(powerUp => {
+      const stillExists = state.powerUps.some(pu => pu.id === powerUp.getId());
+      
+      if (!stillExists) {
+        powerUp.destroy();
+      }
+      
+      return stillExists;
+    });
+    
+    // Then add new power-ups
+    state.powerUps.forEach(powerUp => {
+      if (!this.powerUps.some(pu => pu.getId() === powerUp.id)) {
+        this.spawnRemotePowerUp(powerUp.id, powerUp.type, powerUp.position);
+      }
+    });
+    
+    // Update game state
+    if (state.inProgress !== this.gameState.isGameRunning()) {
+      if (state.inProgress) {
+        this.gameState.startGame();
+      } else {
+        this.gameState.endGame();
+      }
+    }
+  }
+  
+  // Getters
+  public getPlayerTank(): Tank {
+    return this.playerTank;
   }
 }

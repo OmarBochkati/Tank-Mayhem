@@ -378,9 +378,7 @@ export class Tank {
   }
   
   public getForwardDirection(): THREE.Vector3 {
-    // Create a forward vector (negative Z is forward in Three.js)
-    // The key issue is here - we need to match the movement direction
-    // When we move forward, we use negative moveX and moveZ
+    // Create a forward vector (positive Z is forward in Three.js)
     const direction = new THREE.Vector3(0, 0, 1);
     
     // Apply the tank's rotation to this vector
@@ -402,9 +400,9 @@ export class Tank {
     // The barrel extends 3 units from the center of the turret
     // The turret is positioned at the center of the tank, 1 unit above the ground
     return new THREE.Vector3(
-      this.position.x + direction.x * 5,  // 5 units forward from tank center
+      this.position.x + direction.x * 3,  // 3 units forward from tank center
       this.position.y + 1,                // 1 unit above ground (center of turret)
-      this.position.z + direction.z * 5   // 5 units forward from tank center
+      this.position.z + direction.z * 3   // 3 units forward from tank center
     );
   }
 }
