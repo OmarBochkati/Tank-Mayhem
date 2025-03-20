@@ -16,6 +16,8 @@ export enum MessageType {
   PLAYER_ROTATION = 'player_rotation',
   PLAYER_FIRE = 'player_fire',
   PLAYER_HIT = 'player_hit',
+  PLAYER_DEATH = 'player_death',
+  PLAYER_RESPAWN = 'player_respawn',
   SPAWN_POWER_UP = 'spawn_power_up',
   COLLECT_POWER_UP = 'collect_power_up',
   GAME_OVER = 'game_over',
@@ -109,6 +111,7 @@ export class NetworkManager {
   private onChatMessageCallback: ((message: { sender: string, text: string }) => void) | null = null;
   private onErrorCallback: ((error: string) => void) | null = null;
   private onRoomJoinedCallback: ((roomName: string) => void) | null = null;
+  private onPlayerDeathCallback: ((playerId: string) => void) | null = null;
   
   constructor(game: Game) {
     this.game = game;
@@ -283,10 +286,23 @@ export class NetworkManager {
       this.game.handleRemotePlayerHit(data.targetId, data.sourceId, data.damage, data.health);
     });
     
+    this.socket.on(MessageType.PLAYER_DEATH, (data: { playerId: string }) => {
+      // Handle player death event
+      if (this.onPlayerDeathCallback) {
+        this.onPlayerDeathCallback(data.playerId);
+      }
+    });
+    
+    this.socket.on(MessageType.PLAYER_RESPAWN, (data: { playerId: string, position: { x: number, y: number, z: number } }) => {
+      // Handle player respawn event
+      // This will be handled by the game state update
+    });
+    
     this.socket.on(MessageType.SPAWN_POWER_UP, (data: { id: string, type: number, position: { x: number, y: number, z: number } }) => {
       // Handle power-up spawn
       this.game.spawnRemotePowerUp(data.id, data.type, data.position);
     });
+    
     this.socket.on(MessageType.COLLECT_POWER_UP, (data: { id: string, playerId: string }) => {
       // Handle power-up collection
       this.game.collectRemotePowerUp(data.id, data.playerId);
@@ -741,6 +757,28 @@ export class NetworkManager {
   }
   
   /**
+   * Send player respawn event to server
+   */
+  public sendPlayerRespawn(): void {
+    if (!this.roomId) {
+      return;
+    }
+    
+    // For mock rooms, handle locally
+    if (this.roomId.startsWith('mock-') || (this.serverUrl === 'http://localhost:3000' && (!this.socket || !this.socket.connected))) {
+      return;
+    }
+    
+    if (!this.socket || !this.isConnected) {
+      return;
+    }
+    
+    this.socket.emit(MessageType.PLAYER_RESPAWN, {
+      timestamp: Date.now()
+    });
+  }
+  
+  /**
    * Send power-up collection event to server
    * @param powerUpId The ID of the collected power-up
    */
@@ -922,6 +960,13 @@ export class NetworkManager {
    */
   public onRoomJoined(callback: (roomName: string) => void): void {
     this.onRoomJoinedCallback = callback;
+  }
+  
+  /**
+   * Set callback for when a player dies
+   */
+  public onPlayerDeath(callback: (playerId: string) => void): void {
+    this.onPlayerDeathCallback = callback;
   }
   
   /**

@@ -13,6 +13,7 @@ import { ExplosionEffect } from './effects/ExplosionEffect';
 import { MultiplayerManager } from './network/MultiplayerManager';
 import { NetworkGameState } from './network/NetworkManager';
 import { ColorManager } from './utils/ColorManager';
+import { SpawnManager, SpawnDistributionPattern } from './utils/SpawnManager';
 
 export class Game {
   private scene: THREE.Scene;
@@ -34,6 +35,7 @@ export class Game {
   private gameState: GameState;
   private uiManager: UIManager;
   private multiplayerManager: MultiplayerManager;
+  private spawnManager: SpawnManager;
   
   private aiControllers: AIController[] = [];
   
@@ -62,6 +64,9 @@ export class Game {
   // Multiplayer settings
   private isMultiplayerMode: boolean = false;
   
+  // Spawn protection effects
+  private spawnProtectionEffects: Map<string, THREE.Object3D> = new Map();
+  
   public onGameOver: (score: number) => void = () => {};
   
   constructor() {
@@ -78,6 +83,9 @@ export class Game {
     
     this.arena = new Arena(this.scene, 100, 100);
     this.playerTank = new Tank(this.scene, 0, 0, 0);
+    
+    // Initialize spawn manager
+    this.spawnManager = new SpawnManager(this.arenaBounds);
     
     // Initialize multiplayer manager
     this.multiplayerManager = new MultiplayerManager(this);
@@ -191,6 +199,9 @@ export class Game {
     // Reset player tank
     this.playerTank.reset();
     
+    // Initialize spawn manager with current game state
+    this.initializeSpawnManager();
+    
     if (!this.isMultiplayerMode) {
       // Create enemy tanks (only in single player mode)
       this.createEnemyTanks(this.getInitialEnemyCount());
@@ -210,6 +221,46 @@ export class Game {
     this.uiManager.showMessage(`Difficulty: ${this.gameState.getDifficultyName()}`, 2000);
   }
   
+  private initializeSpawnManager(): void {
+    // Configure spawn manager based on game mode and difficulty
+    const difficulty = this.gameState.getDifficultyLevel();
+    
+    // Set arena bounds
+    this.spawnManager.setArenaBounds(this.arenaBounds);
+    
+    // Set active entities for collision detection
+    const allTanks = [this.playerTank, ...this.enemyTanks];
+    this.remotePlayers.forEach(tank => allTanks.push(tank));
+    this.spawnManager.setActiveTanks(allTanks);
+    this.spawnManager.setObstacles(this.obstacles);
+    this.spawnManager.setPowerUps(this.powerUps);
+    
+    // Configure spawn distribution based on difficulty
+    let spawnPattern = SpawnDistributionPattern.UNIFORM;
+    switch (difficulty) {
+      case DifficultyLevel.EASY:
+        spawnPattern = SpawnDistributionPattern.UNIFORM;
+        break;
+      case DifficultyLevel.MEDIUM:
+        spawnPattern = SpawnDistributionPattern.QUADRANTS;
+        break;
+      case DifficultyLevel.HARD:
+        spawnPattern = SpawnDistributionPattern.PERIMETER;
+        break;
+      case DifficultyLevel.INSANE:
+        spawnPattern = SpawnDistributionPattern.CENTRAL;
+        break;
+    }
+    
+    this.spawnManager.configure({
+      spawnDistributionPattern: spawnPattern,
+      spawnProtectionDuration: this.isMultiplayerMode ? 4 : 0 // Only use spawn protection in multiplayer
+    });
+    
+    // Precompute spawn points for faster spawning
+    this.spawnManager.precomputeSpawnPoints(10);
+  }
+  
   public restart(): void {
     // Clear all entities
     this.reset();
@@ -217,7 +268,7 @@ export class Game {
     // Recreate player tank if it was destroyed
     if (!this.playerTank || !this.scene.getObjectById(this.playerTank.getMeshId())) {
       this.playerTank = new Tank(this.scene, 0, 0, 0);
-			this.playerTank.initialize();
+      this.playerTank.initialize();
     }
     
     // Start the game again
@@ -246,6 +297,15 @@ export class Game {
     
     this.explosions.forEach(explosion => explosion.destroy());
     this.explosions = [];
+    
+    // Clear spawn protection effects
+    this.spawnProtectionEffects.forEach(effect => {
+      this.scene.remove(effect);
+    });
+    this.spawnProtectionEffects.clear();
+    
+    // Reset spawn manager
+    this.spawnManager.reset();
     
     // Reset game state
     this.gameState.reset();
@@ -304,6 +364,11 @@ export class Game {
         this.enemyTankDamage = 35;
         break;
     }
+    
+    // Update spawn manager configuration based on new difficulty
+    if (this.spawnManager) {
+      this.initializeSpawnManager();
+    }
   }
   
   private getInitialEnemyCount(): number {
@@ -357,86 +422,15 @@ export class Game {
   }
   
   private spawnEnemyTank(): void {
-    // Find a position away from the player and other tanks
-    let x, z;
-    let validPosition = false;
-    let attempts = 0;
+    // Use spawn manager to find a valid spawn position
+    const spawnPosition = this.spawnManager.getSpawnPosition('enemy-' + this.enemyTanks.length, this.gameState.getDifficultyLevel());
     
-    while (!validPosition && attempts < 20) {
-      // Prioritize central area for spawning
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 15 + Math.random() * 20; // Keep away from center but not too far
-      
-      x = Math.cos(angle) * distance;
-      z = Math.sin(angle) * distance;
-      
-      // Check distance from player
-      const distToPlayer = Math.sqrt(
-        Math.pow(x - this.playerTank.getPosition().x, 2) +
-        Math.pow(z - this.playerTank.getPosition().z, 2)
-      );
-      
-      // Ensure tank is at least 20 units away from player
-      if (distToPlayer > 15) {
-        validPosition = true;
-        
-        // Check distance from other tanks
-        for (const tank of this.enemyTanks) {
-          const distToTank = Math.sqrt(
-            Math.pow(x - tank.getPosition().x, 2) +
-            Math.pow(z - tank.getPosition().z, 2)
-          );
-          
-          if (distToTank < 12) { // Increased minimum spacing between tanks
-            validPosition = false;
-            break;
-          }
-        }
-        
-        // Check distance from obstacles
-        if (validPosition) {
-          for (const obstacle of this.obstacles) {
-            const obstaclePos = obstacle.getPosition();
-            const distToObstacle = Math.sqrt(
-              Math.pow(x - obstaclePos.x, 2) +
-              Math.pow(z - obstaclePos.z, 2)
-            );
-            
-            if (distToObstacle < 8 + obstacle.getRadius()) {
-              validPosition = false;
-              break;
-            }
-          }
-        }
-        
-        // Check distance from walls
-        if (validPosition) {
-          const distToWall = Math.min(
-            Math.abs(x - this.arenaBounds.minX),
-            Math.abs(x - this.arenaBounds.maxX),
-            Math.abs(z - this.arenaBounds.minZ),
-            Math.abs(z - this.arenaBounds.maxZ)
-          );
-          
-          if (distToWall < 20) { // Increased from 15 to 20 to keep further from walls
-            validPosition = false;
-          }
-        }
-      }
-      
-      attempts++;
+    if (!spawnPosition) {
+      console.warn('Could not find valid spawn position for enemy tank');
+      return;
     }
     
-    // If we couldn't find a valid position, use a fallback
-    if (!validPosition) {
-      // Use a more central position as fallback
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 10 + Math.random() * 15; // Smaller distance to stay more central
-      x = Math.cos(angle) * distance;
-      z = Math.sin(angle) * distance;
-    }
-    
-    const tank = new Tank(this.scene, x, 0, z);
+    const tank = new Tank(this.scene, spawnPosition.x, 0, spawnPosition.z);
     tank.initialize();
     tank.setColor(ColorManager.getEnemyColor()); // Use the enemy color from ColorManager
     
@@ -455,6 +449,11 @@ export class Game {
     aiController.setDifficulty(this.gameState.getDifficultyLevel());
     
     this.aiControllers.push(aiController);
+    
+    // Update spawn manager with new tank
+    const allTanks = [this.playerTank, ...this.enemyTanks];
+    this.remotePlayers.forEach(tank => allTanks.push(tank));
+    this.spawnManager.setActiveTanks(allTanks);
   }
   
   private createObstacles(count: number): void {
@@ -486,12 +485,21 @@ export class Game {
       
       this.obstacles.push(obstacle);
     }
+    
+    // Update spawn manager with new obstacles
+    this.spawnManager.setObstacles(this.obstacles);
   }
   
   private animate(): void {
     requestAnimationFrame(this.animate.bind(this));
     
     const deltaTime = this.clock.getDelta();
+    
+    // Update spawn manager
+    this.spawnManager.update(deltaTime);
+    
+    // Update spawn protection effects
+    this.updateSpawnProtectionEffects(deltaTime);
     
     // Update multiplayer manager
     this.multiplayerManager.update(deltaTime);
@@ -618,6 +626,40 @@ export class Game {
     this.renderer.render(this.scene, this.camera);
   }
   
+  private updateSpawnProtectionEffects(deltaTime: number): void {
+    // Update existing spawn protection effects
+    this.spawnProtectionEffects.forEach((effect, playerId) => {
+      let tank: Tank | undefined;
+      
+      // Find the tank for this player
+      if (playerId === this.multiplayerManager.getNetworkManager().getPlayerId()) {
+        tank = this.playerTank;
+      } else {
+        tank = this.remotePlayers.get(playerId);
+      }
+      
+      if (tank) {
+        // Update the effect
+        const keepEffect = this.spawnManager.updateSpawnProtectionEffect(
+          effect,
+          tank,
+          playerId,
+          deltaTime,
+          this.scene
+        );
+        
+        // Remove if no longer needed
+        if (!keepEffect) {
+          this.spawnProtectionEffects.delete(playerId);
+        }
+      } else {
+        // Tank no longer exists, remove the effect
+        this.scene.remove(effect);
+        this.spawnProtectionEffects.delete(playerId);
+      }
+    });
+  }
+  
   private updateTimers(deltaTime: number): void {
     // Update enemy respawn timer (single player mode only)
     if (!this.isMultiplayerMode && this.enemyTanks.length < this.maxEnemyTanks) {
@@ -662,35 +704,64 @@ export class Game {
         if (collisionResult.hitTank) {
           const hitTank = collisionResult.hitTank;
           
-          // If player hit an enemy tank
-          if (projectile.getSourceId() === this.playerTank.getId() && 
-              this.enemyTanks.includes(hitTank)) {
-            // Award points for hitting an enemy tank (even if not destroyed)
-            const hitPoints = 10; // Points for just hitting a tank
-            this.gameState.addScore(hitPoints);
-            
-            // Update UI
-            this.uiManager.updateScore(this.gameState.getScore());
-            
-            // Show score popup
-            this.uiManager.showScorePopup(
-              `+${hitPoints}`, 
-              hitTank.getPosition()
-            );
-          }
+          // Check if the hit tank has spawn protection
+          let hasSpawnProtection = false;
           
-          // In multiplayer mode, send hit event to other players
-          if (this.isMultiplayerMode) {
-            // Find the remote player ID
-            let hitPlayerId = '';
+          // Find the player ID for this tank
+          let hitPlayerId = '';
+          if (hitTank === this.playerTank) {
+            hitPlayerId = this.multiplayerManager.getNetworkManager().getPlayerId();
+          } else {
             this.remotePlayers.forEach((tank, id) => {
               if (tank === hitTank) {
                 hitPlayerId = id;
               }
             });
+          }
+          
+          // Check for spawn protection
+          if (hitPlayerId && this.spawnManager.hasSpawnProtection(hitPlayerId)) {
+            hasSpawnProtection = true;
             
-            if (hitPlayerId && projectile.getSourceId() === this.playerTank.getId()) {
-              this.multiplayerManager.sendHitEvent(hitPlayerId, projectile.getDamage());
+            // Show shield hit effect
+            this.createShieldHitEffect(hitTank.getPosition());
+          }
+          
+          // Only apply damage if no spawn protection
+          if (!hasSpawnProtection) {
+            // If player hit an enemy tank
+            if (projectile.getSourceId() === this.playerTank.getId() && 
+                this.enemyTanks.includes(hitTank)) {
+              // Award points for hitting an enemy tank (even if not destroyed)
+              const hitPoints = 10; // Points for just hitting a tank
+              this.gameState.addScore(hitPoints);
+              
+              // Update UI
+              this.uiManager.updateScore(this.gameState.getScore());
+              
+              // Show score popup
+              this.uiManager.showScorePopup(
+                `+${hitPoints}`, 
+                hitTank.getPosition()
+              );
+            }
+            
+            // Apply damage to the tank
+            hitTank.takeDamage(projectile.getDamage());
+            
+            // In multiplayer mode, send hit event to other players
+            if (this.isMultiplayerMode) {
+              // Find the remote player ID
+              let hitPlayerId = '';
+              this.remotePlayers.forEach((tank, id) => {
+                if (tank === hitTank) {
+                  hitPlayerId = id;
+                }
+              });
+              
+              if (hitPlayerId && projectile.getSourceId() === this.playerTank.getId()) {
+                this.multiplayerManager.sendHitEvent(hitPlayerId, projectile.getDamage());
+              }
             }
           }
         }
@@ -721,6 +792,9 @@ export class Game {
             if (obstacleIndex !== -1) {
               hitObstacle.destroy();
               this.obstacles.splice(obstacleIndex, 1);
+              
+              // Update spawn manager with new obstacles
+              this.spawnManager.setObstacles(this.obstacles);
             }
           }
         }
@@ -730,6 +804,41 @@ export class Game {
         this.projectiles.splice(i, 1);
       }
     }
+  }
+  
+  private createShieldHitEffect(position: THREE.Vector3): void {
+    // Create a ripple effect on the shield
+    const geometry = new THREE.RingGeometry(1, 3, 32);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x00ffff,
+      transparent: true,
+      opacity: 0.7,
+      side: THREE.DoubleSide
+    });
+    
+    const ripple = new THREE.Mesh(geometry, material);
+    ripple.position.copy(position);
+    ripple.position.y = 2;
+    ripple.rotation.x = Math.PI / 2; // Lay flat
+    
+    this.scene.add(ripple);
+    
+    // Animate the ripple expanding and fading
+    const expandRipple = () => {
+      ripple.scale.x += 0.1;
+      ripple.scale.y += 0.1;
+      ripple.scale.z += 0.1;
+      
+      (ripple.material as THREE.MeshBasicMaterial).opacity -= 0.03;
+      
+      if ((ripple.material as THREE.MeshBasicMaterial).opacity > 0) {
+        requestAnimationFrame(expandRipple);
+      } else {
+        this.scene.remove(ripple);
+      }
+    };
+    
+    expandRipple();
   }
   
   private updatePowerUps(deltaTime: number): void {
@@ -765,6 +874,9 @@ export class Game {
         // Remove power-up
         powerUp.destroy();
         this.powerUps.splice(i, 1);
+        
+        // Update spawn manager with new power-ups
+        this.spawnManager.setPowerUps(this.powerUps);
       }
     }
   }
@@ -794,6 +906,11 @@ export class Game {
       
       // Update AI tank references after removing a tank
       this.updateAITankReferences();
+      
+      // Update spawn manager with new tanks
+      const allTanks = [this.playerTank, ...this.enemyTanks];
+      this.remotePlayers.forEach(tank => allTanks.push(tank));
+      this.spawnManager.setActiveTanks(allTanks);
     }
   }
   
@@ -845,17 +962,30 @@ export class Game {
   }
   
   public spawnPowerUp(): void {
-    // Spawn power-ups in more central locations to encourage movement
-    const angle = Math.random() * Math.PI * 2;
-    const distance = Math.random() * 25; // Reduced from 30 to keep power-ups even more central
+    // Use spawn manager to find a valid position for power-up
+    const spawnPosition = this.spawnManager.getSpawnPosition('power-up-' + this.powerUps.length, this.gameState.getDifficultyLevel());
     
-    const x = Math.cos(angle) * distance;
-    const z = Math.sin(angle) * distance;
+    if (!spawnPosition) {
+      // Fallback to old method if spawn manager fails
+      const angle = Math.random() * Math.PI * 2;
+      const distance = Math.random() * 25;
+      
+      const x = Math.cos(angle) * distance;
+      const z = Math.sin(angle) * distance;
+      
+      const powerUp = new PowerUp(this.scene, x, 0, z);
+      powerUp.initialize();
+      
+      this.powerUps.push(powerUp);
+    } else {
+      const powerUp = new PowerUp(this.scene, spawnPosition.x, 0, spawnPosition.z);
+      powerUp.initialize();
+      
+      this.powerUps.push(powerUp);
+    }
     
-    const powerUp = new PowerUp(this.scene, x, 0, z);
-    powerUp.initialize();
-    
-    this.powerUps.push(powerUp);
+    // Update spawn manager with new power-ups
+    this.spawnManager.setPowerUps(this.powerUps);
   }
   
   // Multiplayer methods
@@ -874,8 +1004,14 @@ export class Game {
   
   // Methods for handling remote player events
   public addRemotePlayer(id: string, name: string, position: { x: number, y: number, z: number }, rotation: number, color: number): void {
+    // Find a valid spawn position for the remote player
+    const spawnPosition = this.spawnManager.getSpawnPosition(id, this.gameState.getDifficultyLevel());
+    
+    // Use provided position as fallback if spawn manager fails
+    const finalPosition = spawnPosition || new THREE.Vector3(position.x, position.y, position.z);
+    
     // Create a new tank for the remote player
-    const tank = new Tank(this.scene, position.x, position.y, position.z);
+    const tank = new Tank(this.scene, finalPosition.x, finalPosition.y, finalPosition.z);
     tank.initialize();
     tank.setRotation(rotation);
     
@@ -889,6 +1025,20 @@ export class Game {
     
     // Add to remote players map
     this.remotePlayers.set(id, tank);
+    
+    // Apply spawn protection
+    this.spawnManager.applySpawnProtection(id);
+    
+    // Create spawn protection visual effect
+    const protectionEffect = this.spawnManager.createSpawnProtectionEffect(tank, id, this.scene);
+    if (protectionEffect) {
+      this.spawnProtectionEffects.set(id, protectionEffect);
+    }
+    
+    // Update spawn manager with new tanks
+    const allTanks = [this.playerTank, ...this.enemyTanks];
+    this.remotePlayers.forEach(tank => allTanks.push(tank));
+    this.spawnManager.setActiveTanks(allTanks);
     
     // Show message
     this.uiManager.showMessage(`${name} joined the game`, 2000);
@@ -907,6 +1057,20 @@ export class Game {
       
       // Free up the player's color
       this.multiplayerManager.getColorManager().removePlayer(id);
+      
+      // Remove any spawn protection effect
+      if (this.spawnProtectionEffects.has(id)) {
+        const effect = this.spawnProtectionEffects.get(id);
+        if (effect) {
+          this.scene.remove(effect);
+        }
+        this.spawnProtectionEffects.delete(id);
+      }
+      
+      // Update spawn manager with new tanks
+      const allTanks = [this.playerTank, ...this.enemyTanks];
+      this.remotePlayers.forEach(tank => allTanks.push(tank));
+      this.spawnManager.setActiveTanks(allTanks);
     }
   }
   
@@ -918,6 +1082,15 @@ export class Game {
       // Update position and rotation
       tank.setPosition(position.x, position.y, position.z);
       tank.setRotation(rotation);
+      
+      // Update spawn protection effect position if it exists
+      if (this.spawnProtectionEffects.has(id)) {
+        const effect = this.spawnProtectionEffects.get(id);
+        if (effect) {
+          effect.position.copy(tank.getPosition());
+          effect.position.y = tank.getRadius() * 1.2 / 2;
+        }
+      }
     }
   }
   
@@ -926,22 +1099,37 @@ export class Game {
     const tank = this.remotePlayers.get(id);
     
     if (tank) {
-      // Create a projectile
-      this.fireProjectile(tank);
+      // Check if player has spawn protection (players with protection can't fire)
+      if (!this.spawnManager.hasSpawnProtection(id)) {
+        // Create a projectile
+        this.fireProjectile(tank);
+      }
     }
   }
   
   public handleRemotePlayerHit(targetId: string, sourceId: string, damage: number, health: number): void {
     // If the player was hit
     if (targetId === this.multiplayerManager.getNetworkManager().getPlayerId()) {
-      this.playerTank.takeDamage(damage);
+      // Check if player has spawn protection
+      if (!this.spawnManager.hasSpawnProtection(targetId)) {
+        this.playerTank.takeDamage(damage);
+      } else {
+        // Show shield hit effect
+        this.createShieldHitEffect(this.playerTank.getPosition());
+      }
     } else {
       // If a remote player was hit
       const tank = this.remotePlayers.get(targetId);
       
       if (tank) {
-        tank.takeDamage(damage);
-        tank.setHealth(health);
+        // Check if remote player has spawn protection
+        if (!this.spawnManager.hasSpawnProtection(targetId)) {
+          tank.takeDamage(damage);
+          tank.setHealth(health);
+        } else {
+          // Show shield hit effect
+          this.createShieldHitEffect(tank.getPosition());
+        }
       }
     }
   }
@@ -954,6 +1142,9 @@ export class Game {
     
     // Add to power-ups array
     this.powerUps.push(powerUp);
+    
+    // Update spawn manager with new power-ups
+    this.spawnManager.setPowerUps(this.powerUps);
   }
   
   public collectRemotePowerUp(id: string, playerId: string): void {
@@ -976,6 +1167,9 @@ export class Game {
       // Remove power-up
       powerUp.destroy();
       this.powerUps.splice(powerUpIndex, 1);
+      
+      // Update spawn manager with new power-ups
+      this.spawnManager.setPowerUps(this.powerUps);
     }
   }
   
@@ -1054,10 +1248,48 @@ export class Game {
         this.gameState.endGame();
       }
     }
+    
+    // Update spawn manager with new entities
+    const allTanks = [this.playerTank];
+    this.remotePlayers.forEach(tank => allTanks.push(tank));
+    this.spawnManager.setActiveTanks(allTanks);
+    this.spawnManager.setPowerUps(this.powerUps);
   }
   
   // Getters
   public getPlayerTank(): Tank {
     return this.playerTank;
+  }
+  
+  public getSpawnManager(): SpawnManager {
+    return this.spawnManager;
+  }
+  
+  // Respawn the player at a new position (for multiplayer)
+  public respawnPlayer(): void {
+    const playerId = this.multiplayerManager.getNetworkManager().getPlayerId();
+    
+    // Find a valid spawn position
+    const spawnPosition = this.spawnManager.getSpawnPosition(playerId, this.gameState.getDifficultyLevel());
+    
+    if (spawnPosition) {
+      // Reset player tank
+      this.playerTank.reset();
+      
+      // Move to new position
+      this.playerTank.setPosition(spawnPosition.x, spawnPosition.y, spawnPosition.z);
+      
+      // Apply spawn protection
+      this.spawnManager.applySpawnProtection(playerId);
+      
+      // Create spawn protection visual effect
+      const protectionEffect = this.spawnManager.createSpawnProtectionEffect(this.playerTank, playerId, this.scene);
+      if (protectionEffect) {
+        this.spawnProtectionEffects.set(playerId, protectionEffect);
+      }
+      
+      // Show respawn message
+      this.uiManager.showMessage('Respawned with 4 seconds of protection', 2000);
+    }
   }
 }

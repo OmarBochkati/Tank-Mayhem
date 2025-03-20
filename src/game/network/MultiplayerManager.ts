@@ -3,6 +3,7 @@ import { NetworkManager, PlayerData, RoomInfo } from './NetworkManager';
 import { LobbyUI } from './LobbyUI';
 import { GameMode, DifficultyLevel } from '../core/GameState';
 import { ColorManager } from '../utils/ColorManager';
+import { SpawnDistributionPattern } from '../utils/SpawnManager';
 
 /**
  * MultiplayerManager handles the integration between the game and networking,
@@ -17,6 +18,11 @@ export class MultiplayerManager {
   private remotePlayers: Map<string, PlayerData> = new Map();
   private isInMultiplayerMode: boolean = false;
   private isInLobby: boolean = false;
+  
+  // Player respawn settings
+  private respawnDelay: number = 3; // seconds
+  private respawnTimer: number = 0;
+  private isWaitingToRespawn: boolean = false;
   
   constructor(game: Game) {
     this.game = game;
@@ -88,7 +94,42 @@ export class MultiplayerManager {
       // Only the host can set difficulty
       if (this.networkManager.isRoomHost()) {
         this.game.setDifficulty(difficulty);
+        
+        // Configure spawn manager based on difficulty
+        let spawnPattern = SpawnDistributionPattern.UNIFORM;
+        switch (difficulty) {
+          case DifficultyLevel.EASY:
+            spawnPattern = SpawnDistributionPattern.UNIFORM;
+            break;
+          case DifficultyLevel.MEDIUM:
+            spawnPattern = SpawnDistributionPattern.QUADRANTS;
+            break;
+          case DifficultyLevel.HARD:
+            spawnPattern = SpawnDistributionPattern.PERIMETER;
+            break;
+          case DifficultyLevel.INSANE:
+            spawnPattern = SpawnDistributionPattern.CENTRAL;
+            break;
+        }
+        
+        this.game.getSpawnManager().configure({
+          spawnDistributionPattern: spawnPattern,
+          spawnProtectionDuration: 4
+        });
+        
         // TODO: Broadcast difficulty change to other players
+      }
+    });
+    
+    // Set spawn distribution pattern
+    this.lobbyUI.onSetSpawnPattern((pattern: SpawnDistributionPattern) => {
+      // Only the host can set spawn pattern
+      if (this.networkManager.isRoomHost()) {
+        this.game.getSpawnManager().configure({
+          spawnDistributionPattern: pattern
+        });
+        
+        // TODO: Broadcast spawn pattern change to other players
       }
     });
   }
@@ -161,6 +202,14 @@ export class MultiplayerManager {
     this.networkManager.onRoomJoined((roomName: string) => {
       console.log(`Room joined callback: ${roomName}`);
       this.lobbyUI.showRoom(roomName);
+    });
+    
+    // Player death callback
+    this.networkManager.onPlayerDeath((playerId: string) => {
+      // If this is the local player, start respawn timer
+      if (playerId === this.networkManager.getPlayerId()) {
+        this.startRespawnTimer();
+      }
     });
   }
   
@@ -292,6 +341,18 @@ export class MultiplayerManager {
   }
   
   /**
+   * Start the respawn timer when player dies
+   */
+  private startRespawnTimer(): void {
+    this.isWaitingToRespawn = true;
+    this.respawnTimer = this.respawnDelay;
+    
+    // Show respawn countdown message
+    this.game.getPlayerTank().setHealth(0);
+    this.lobbyUI.showMessage(`Respawning in ${this.respawnDelay} seconds...`, this.respawnDelay * 1000);
+  }
+  
+  /**
    * Update method called every frame
    */
   public update(deltaTime: number): void {
@@ -300,10 +361,20 @@ export class MultiplayerManager {
     // Update network manager for interpolation
     this.networkManager.update(deltaTime);
     
+    // Update respawn timer
+    if (this.isWaitingToRespawn) {
+      this.respawnTimer -= deltaTime;
+      
+      if (this.respawnTimer <= 0) {
+        this.isWaitingToRespawn = false;
+        this.respawnPlayer();
+      }
+    }
+    
     // If we're in a game, send our position and rotation
-    if (!this.isInLobby) {
+    if (!this.isInLobby && !this.isWaitingToRespawn) {
       const playerTank = this.game.getPlayerTank();
-      if (playerTank) {
+      if (playerTank && playerTank.getHealth() > 0) {
         this.networkManager.sendPlayerPosition(playerTank.getPosition());
         this.networkManager.sendPlayerRotation(playerTank.getRotation());
       }
@@ -311,10 +382,21 @@ export class MultiplayerManager {
   }
   
   /**
+   * Respawn the player
+   */
+  private respawnPlayer(): void {
+    // Respawn the player at a new position
+    this.game.respawnPlayer();
+    
+    // Notify the server that we've respawned
+    this.networkManager.sendPlayerRespawn();
+  }
+  
+  /**
    * Send a fire event to other players
    */
   public sendFireEvent(position: { x: number, y: number, z: number }, direction: { x: number, y: number, z: number }): void {
-    if (this.isInMultiplayerMode && !this.isInLobby) {
+    if (this.isInMultiplayerMode && !this.isInLobby && !this.isWaitingToRespawn) {
       this.networkManager.sendPlayerFire(position, direction);
     }
   }
