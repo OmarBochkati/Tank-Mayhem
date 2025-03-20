@@ -487,9 +487,9 @@ export class LobbyUI {
     panel.className = 'lobby-panel';
     panel.style.display = 'none';
     panel.style.position = 'absolute';
-    panel.style.top = '50%';
-    panel.style.left = '50%';
-    panel.style.transform = 'translate(-50%, -50%)';
+    panel.style.bottom = '0%';
+    panel.style.right = '0%';
+    panel.style.transform = 'translate(-10%, -20%)';
     panel.style.width = '300px';
     panel.style.height = '400px';
     panel.style.padding = '20px';
@@ -518,7 +518,6 @@ export class LobbyUI {
     const chatForm = document.createElement('form');
     chatForm.id = 'chat-form';
     chatForm.style.display = 'flex';
-    chatForm.style.flexDirection = 'column';
     chatForm.style.gap = '10px';
     
     const chatInput = document.createElement('input');

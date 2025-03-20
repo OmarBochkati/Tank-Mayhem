@@ -167,7 +167,7 @@ export class Game {
   
   public showMultiplayerLobby(): void {
     // Pause the game if it's running
-    if (this.gameState.isGameRunning()) {
+    if (this.gameState.isGameRunning() && !this.gameState.isGamePaused()) {
       this.gameState.pauseGame();
     }
     
@@ -495,7 +495,7 @@ export class Game {
     // Update multiplayer manager
     this.multiplayerManager.update(deltaTime);
     
-    if (this.gameState.isGameRunning()) {
+    if (this.gameState.isGameRunning() && !this.gameState.isGamePaused()) {
       // Update timers
       this.updateTimers(deltaTime);
       
@@ -633,7 +633,7 @@ export class Game {
     this.powerUpTimer -= deltaTime;
     if (this.powerUpTimer <= 0) {
       this.spawnPowerUp();
-      this.powerUpTimer = this.powerUpSpawnInterval;
+      thispowerUpTimer = this.powerUpSpawnInterval;
     }
   }
   
